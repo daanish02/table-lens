@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "../lib/api-client";
 import { logger } from "../lib/logger";
+import { formatCount, formatDateTime } from "../lib/format";
 
 type DiscoverStatus = {
   run_id: string;
@@ -41,25 +42,6 @@ type TableResult = {
   column_count: number | null;
 };
 
-type ColumnProfile = {
-  row_count: number;
-  null_rate: number;
-  distinct_count: number;
-  min_value: unknown;
-  max_value: unknown;
-  mean_value: number | null;
-  p50: number | null;
-  p95: number | null;
-  top_values: [unknown, number][];
-  histogram: [number, number][];
-};
-
-type ColumnResult = {
-  column_name: string;
-  description: string;
-  profile: ColumnProfile | null;
-};
-
 type LogEntry = {
   step: string;
   at: number; // ms since epoch, for duration math
@@ -86,11 +68,6 @@ function formatDuration(ms: number): string {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-function formatCount(n: number | null): string {
-  if (n === null) return "—";
-  return n.toLocaleString();
-}
-
 export default function DataOverview() {
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
@@ -98,9 +75,6 @@ export default function DataOverview() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [starting, setStarting] = useState(false);
   const [results, setResults] = useState<TableResult[] | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [columns, setColumns] = useState<ColumnResult[] | null>(null);
-  const [expandedColumn, setExpandedColumn] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const lastStep = useRef<string | null>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -177,19 +151,6 @@ export default function DataOverview() {
     }
   }
 
-  async function toggleTable(tableName: string) {
-    if (expanded === tableName) {
-      setExpanded(null);
-      setColumns(null);
-      setExpandedColumn(null);
-      return;
-    }
-    setExpanded(tableName);
-    setExpandedColumn(null);
-    const r = await apiClient.get<{ columns: ColumnResult[] }>(`/api/discover/results/${tableName}`);
-    setColumns(r.columns);
-  }
-
   // table_done:<name>:<col_count> entries, paired with the time since the
   // previous completion, for the per-table duration shown in the log.
   const completions: TableCompletion[] = [];
@@ -229,7 +190,7 @@ export default function DataOverview() {
           label="last run"
           value={
             overview?.last_run
-              ? `${overview.last_run.status}${overview.last_run.finished_at ? " · " + new Date(overview.last_run.finished_at).toLocaleString() : ""}`
+              ? `${overview.last_run.status}${overview.last_run.finished_at ? " · " + formatDateTime(overview.last_run.finished_at) : ""}`
               : "never"
           }
         />
@@ -295,42 +256,19 @@ export default function DataOverview() {
       )}
 
       {results && (
-        <div style={styles.panel}>
-          <div style={styles.panelTitle}>discovered tables ({results.length})</div>
-          {results.map((t) => (
-            <div key={t.table_name} style={styles.tableRow}>
-              <div style={styles.tableRowHeader} onClick={() => toggleTable(t.table_name)}>
-                <span style={styles.tableName}>{t.table_name}</span>
-                <span style={styles.dim}>
+        <div style={styles.tableGridSection}>
+          <div style={styles.sectionTitle}>discovered tables ({results.length})</div>
+          <div style={styles.tableGrid}>
+            {results.map((t) => (
+              <Link key={t.table_name} href={`/data/browse/${t.table_name}`} style={styles.tableCard}>
+                <div style={styles.tableCardName}>{t.table_name}</div>
+                <div style={styles.tableCardMeta}>
                   {formatCount(t.row_count)} rows · {formatCount(t.column_count)} cols
-                </span>
-                <span style={styles.expandHint}>{expanded === t.table_name ? "−" : "+"}</span>
-              </div>
-              <div style={styles.tableDesc}>{t.description}</div>
-              {expanded === t.table_name && (
-                <Link href={`/data/browse/${t.table_name}`} style={styles.browseLink}>
-                  browse raw data →
-                </Link>
-              )}
-              {expanded === t.table_name && columns && (
-                <div style={styles.columnList}>
-                  {columns.map((c) => (
-                    <div key={c.column_name} style={styles.columnBlock}>
-                      <div
-                        style={styles.columnRowHeader}
-                        onClick={() => setExpandedColumn(expandedColumn === c.column_name ? null : c.column_name)}
-                      >
-                        <span style={styles.columnName}>{c.column_name}</span>
-                        <span style={styles.dim}> — {c.description}</span>
-                        {c.profile && <span style={styles.expandHint}>{expandedColumn === c.column_name ? "−" : "+"}</span>}
-                      </div>
-                      {expandedColumn === c.column_name && c.profile && <ColumnProfileView profile={c.profile} />}
-                    </div>
-                  ))}
                 </div>
-              )}
-            </div>
-          ))}
+                <div style={styles.tableCardDesc}>{t.description}</div>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
     </main>
@@ -354,62 +292,9 @@ function StatusBadge({ status }: { status: DiscoverStatus["status"] }) {
   );
 }
 
-function ColumnProfileView({ profile }: { profile: ColumnProfile }) {
-  return (
-    <div style={styles.profileBlock}>
-      <div style={styles.profileStats}>
-        <span>null rate: {(profile.null_rate * 100).toFixed(1)}%</span>
-        <span>distinct: {formatCount(profile.distinct_count)}</span>
-        {profile.mean_value != null && <span>mean: {profile.mean_value.toFixed(2)}</span>}
-        {profile.p50 != null && <span>p50: {profile.p50}</span>}
-        {profile.p95 != null && <span>p95: {profile.p95}</span>}
-        {profile.min_value != null && <span>min: {String(profile.min_value)}</span>}
-        {profile.max_value != null && <span>max: {String(profile.max_value)}</span>}
-      </div>
-      {profile.histogram.length > 0 && <BarChart data={profile.histogram} />}
-      {profile.top_values.length > 0 && (
-        <BarChart data={profile.top_values.map(([v, c], i) => [i, c] as [number, number])} labels={profile.top_values.map(([v]) => String(v))} />
-      )}
-    </div>
-  );
-}
-
-function BarChart({ data, labels }: { data: [number, number][]; labels?: string[] }) {
-  const width = 280;
-  const height = 56;
-  const max = Math.max(...data.map(([, c]) => c), 1);
-  const barWidth = width / data.length;
-  return (
-    <div>
-      <svg width={width} height={height} style={{ display: "block" }}>
-        {data.map(([bucket, count], i) => {
-          const h = (count / max) * height;
-          return (
-            <rect
-              key={bucket}
-              x={i * barWidth}
-              y={height - h}
-              width={Math.max(barWidth - 1, 1)}
-              height={h}
-              style={{ fill: "var(--accent)", opacity: 0.8 }}
-            />
-          );
-        })}
-      </svg>
-      {labels && (
-        <div style={styles.barLabels}>
-          {labels.map((l, i) => (
-            <span key={i} style={styles.barLabel}>{l}</span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 const styles: Record<string, React.CSSProperties> = {
   page: {
-    maxWidth: 720,
+    maxWidth: 960,
     margin: "0 auto",
     padding: "64px 24px",
   },
@@ -418,11 +303,6 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "baseline",
     gap: 12,
     marginBottom: 24,
-  },
-  wordmark: {
-    fontSize: 18,
-    fontWeight: 600,
-    letterSpacing: "-0.02em",
   },
   subtitle: {
     fontSize: 13,
@@ -541,81 +421,46 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "3px 0",
     color: "var(--text)",
   },
-  tableRow: {
-    borderBottom: "1px solid var(--border)",
-    padding: "12px 16px",
+  tableGridSection: {
+    marginTop: 32,
   },
-  tableRowHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
+  sectionTitle: {
+    fontSize: 11,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "var(--text-faint)",
+    marginBottom: 12,
+  },
+  tableGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
     gap: 12,
-    cursor: "pointer",
   },
-  tableName: {
+  tableCard: {
+    display: "block",
+    border: "1px solid var(--border)",
+    borderRadius: 2,
+    padding: "14px 16px",
+    textDecoration: "none",
+    color: "var(--text)",
+  },
+  tableCardName: {
     fontSize: 13,
     color: "var(--accent)",
   },
-  expandHint: {
-    color: "var(--text-faint)",
-    fontSize: 14,
-  },
-  tableDesc: {
-    fontSize: 12,
-    color: "var(--text-dim)",
-    marginTop: 4,
-    lineHeight: 1.5,
-  },
-  browseLink: {
-    display: "inline-block",
-    marginTop: 8,
-    fontSize: 12,
-  },
-  columnList: {
-    marginTop: 10,
-    paddingLeft: 12,
-    borderLeft: "1px solid var(--border)",
-  },
-  columnBlock: {
-    padding: "3px 0",
-  },
-  columnRowHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: 4,
-    fontSize: 12,
-    cursor: "pointer",
-  },
-  columnName: {
-    color: "var(--text)",
-  },
-  profileBlock: {
-    marginTop: 8,
-    marginBottom: 8,
-    padding: "10px 12px",
-    background: "var(--surface)",
-    border: "1px solid var(--border)",
-    borderRadius: 2,
-  },
-  profileStats: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 12,
+  tableCardMeta: {
     fontSize: 11,
-    color: "var(--text-dim)",
-    marginBottom: 8,
-  },
-  barLabels: {
-    display: "flex",
-    justifyContent: "space-between",
-    fontSize: 9,
     color: "var(--text-faint)",
-    marginTop: 2,
+    marginTop: 4,
   },
-  barLabel: {
-    maxWidth: 30,
+  tableCardDesc: {
+    fontSize: 12,
+    color: "var(--text-dim)",
+    marginTop: 8,
+    lineHeight: 1.5,
+    display: "-webkit-box",
+    WebkitLineClamp: 3,
+    WebkitBoxOrient: "vertical",
     overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
   },
 };

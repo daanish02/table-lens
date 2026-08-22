@@ -1,5 +1,5 @@
-import RawDataBrowser from "../../../../components/RawDataBrowser";
+import TableDetail from "../../../../components/TableDetail";
 
 export default function BrowseTablePage({ params }: { params: { table: string } }) {
-  return <RawDataBrowser table={params.table} />;
+  return <TableDetail table={params.table} />;
 }
