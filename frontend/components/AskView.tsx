@@ -12,6 +12,7 @@ type ChatMessage = {
   content: string;
   error?: boolean;
   elapsedMs?: number;
+  steps?: string[];
 };
 
 type QueryResult = {
@@ -23,6 +24,25 @@ type QueryResult = {
   headline: string | null;
   elapsed_ms: number;
 };
+
+type StreamEvent =
+  | { type: "tool_call"; tool: string; args: Record<string, unknown> }
+  | { type: "tool_result"; tool: string; summary: string }
+  | { type: "answer_delta"; text: string }
+  | ({ type: "done" } & QueryResult);
+
+function toolCallLabel(tool: string, args: Record<string, unknown>): string {
+  switch (tool) {
+    case "search_tables":
+      return `🔍 searching tables for "${args.query}"`;
+    case "search_columns":
+      return `📋 checking columns in ${args.table_name}`;
+    case "run_sql":
+      return "▶ running SQL";
+    default:
+      return `calling ${tool}`;
+  }
+}
 
 const PAGE_SIZE = 50;
 const MIN_V_SPLIT_PCT = 20;
@@ -40,11 +60,14 @@ export default function AskView() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [progressLines, setProgressLines] = useState<string[]>([]);
+  const [streamingText, setStreamingText] = useState("");
   const [result, setResult] = useState<QueryResult | null>(null);
   const [page, setPage] = useState(1);
   const [vSplitPct, setVSplitPct] = useState(DEFAULT_V_SPLIT_PCT);
   const [chatPct, setChatPct] = useState(DEFAULT_CHAT_PCT);
   const [copied, setCopied] = useState(false);
+  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
 
   const chatLogRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -54,7 +77,7 @@ export default function AskView() {
 
   useEffect(() => {
     chatLogRef.current?.scrollTo({ top: chatLogRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, progressLines, streamingText]);
 
   useEffect(() => {
     function onMove(e: MouseEvent) {
@@ -89,19 +112,59 @@ export default function AskView() {
     setMessages((prev) => [...prev, { role: "user", content: question }]);
     setInput("");
     setLoading(true);
+    setProgressLines([]);
+    setStreamingText("");
+
+    let liveAnswer = "";
+    let finalResult: QueryResult | null = null;
+    const stepsAcc: string[] = [];
 
     try {
-      const res = await apiClient.post<QueryResult>("/api/query", { question, history });
-      setMessages((prev) => [...prev, { role: "assistant", content: res.answer || res.headline || "(no answer)", elapsedMs: res.elapsed_ms }]);
-      if (res.sql) {
-        setResult(res);
+      await apiClient.streamPost<StreamEvent>("/api/query", { question, history }, (event) => {
+        if (event.type === "tool_call") {
+          const line = toolCallLabel(event.tool, event.args);
+          stepsAcc.push(line);
+          setProgressLines((prev) => [...prev, line]);
+        } else if (event.type === "tool_result" && event.tool === "run_sql") {
+          const ok = !event.summary.startsWith("error");
+          const line = `${ok ? "✓" : "✗"} ${event.summary}`;
+          stepsAcc.push(line);
+          setProgressLines((prev) => [...prev, line]);
+        } else if (event.type === "answer_delta") {
+          liveAnswer += event.text;
+          setStreamingText(liveAnswer);
+        } else if (event.type === "done") {
+          finalResult = {
+            answer: event.answer,
+            sql: event.sql,
+            columns: event.columns,
+            rows: event.rows,
+            row_count: event.row_count,
+            headline: event.headline,
+            elapsed_ms: event.elapsed_ms,
+          };
+        }
+      });
+
+      // Explicit cast, not just an annotation: TypeScript's control-flow
+      // analysis for a `let` reassigned inside a closure passed to an
+      // awaited function narrows the post-await read to `never` (a known
+      // CFA limitation, reproducible in isolation) — the annotation alone
+      // doesn't override it, the cast does.
+      const settled = finalResult as QueryResult | null;
+      const answerText = (settled && settled.answer) || liveAnswer || (settled && settled.headline) || "(no answer)";
+      setMessages((prev) => [...prev, { role: "assistant", content: answerText, elapsedMs: settled?.elapsed_ms, steps: stepsAcc }]);
+      if (settled && settled.sql) {
+        setResult(settled);
         setPage(1);
       }
     } catch (err) {
       logger.error("query failed", err);
-      setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong answering that — try rephrasing the question.", error: true }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong answering that — try rephrasing the question.", error: true, steps: stepsAcc }]);
     } finally {
       setLoading(false);
+      setProgressLines([]);
+      setStreamingText("");
     }
   }
 
@@ -110,6 +173,15 @@ export default function AskView() {
       e.preventDefault();
       handleSend();
     }
+  }
+
+  function toggleSteps(index: number) {
+    setExpandedSteps((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
   }
 
   async function copySql() {
@@ -137,6 +209,20 @@ export default function AskView() {
           )}
           {messages.map((m, i) => (
             <div key={i} style={styles.bubbleRow}>
+              {m.steps && m.steps.length > 0 && (
+                <div style={styles.stepsWrap}>
+                  <button style={styles.stepsToggle} onClick={() => toggleSteps(i)}>
+                    {expandedSteps.has(i) ? "▾" : "▸"} {m.steps.length} step{m.steps.length === 1 ? "" : "s"}
+                  </button>
+                  {expandedSteps.has(i) && (
+                    <div style={styles.progressBox}>
+                      {m.steps.map((line, j) => (
+                        <div key={j} style={styles.progressLine}>{line}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div style={{ ...styles.bubble, ...(m.role === "user" ? styles.bubbleUser : styles.bubbleAssistant), ...(m.error ? styles.bubbleError : {}) }}>
                 {m.role === "assistant" ? (
                   <div className="markdown-body">
@@ -150,7 +236,27 @@ export default function AskView() {
             </div>
           ))}
           {loading && (
-            <div style={{ ...styles.bubble, ...styles.bubbleAssistant, ...styles.dim }}>thinking…</div>
+            <div style={styles.bubbleRow}>
+              {progressLines.length > 0 && (
+                <div style={styles.progressBox}>
+                  {progressLines.map((line, i) => (
+                    <div key={i} style={styles.progressLine}>{line}</div>
+                  ))}
+                </div>
+              )}
+              {streamingText ? (
+                <div style={{ ...styles.bubble, ...styles.bubbleAssistant }}>
+                  <div className="markdown-body">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingText}</ReactMarkdown>
+                  </div>
+                  <span style={styles.cursor}>▍</span>
+                </div>
+              ) : (
+                progressLines.length === 0 && (
+                  <div style={{ ...styles.bubble, ...styles.bubbleAssistant, ...styles.dim }}>thinking…</div>
+                )
+              )}
+            </div>
           )}
         </div>
         <div style={styles.inputRow}>
@@ -301,6 +407,38 @@ const styles: Record<string, React.CSSProperties> = {
   dim: {
     color: "var(--text-dim)",
     fontSize: 12,
+  },
+  progressBox: {
+    alignSelf: "flex-start",
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    marginBottom: 6,
+  },
+  stepsWrap: {
+    alignSelf: "flex-start",
+    display: "flex",
+    flexDirection: "column",
+  },
+  stepsToggle: {
+    alignSelf: "flex-start",
+    background: "transparent",
+    border: "none",
+    color: "var(--text-faint)",
+    fontFamily: "var(--mono)",
+    fontSize: 11,
+    padding: "2px 2px 4px",
+    cursor: "pointer",
+  },
+  progressLine: {
+    fontSize: 11,
+    color: "var(--text-faint)",
+    fontFamily: "var(--mono)",
+  },
+  cursor: {
+    display: "inline-block",
+    color: "var(--accent)",
+    animation: "blink-cursor 1s steps(1) infinite",
   },
   inputRow: {
     display: "flex",
