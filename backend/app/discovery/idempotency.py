@@ -81,3 +81,10 @@ def get_status(engine: Engine, run_id: str) -> dict | None:
     with engine.connect() as conn:
         row = conn.execute(text(queries.load("idempotency_get_status")), {"id": run_id}).mappings().first()
     return dict(row) if row else None
+
+
+def get_last_run(engine: Engine) -> dict | None:
+    ensure_runs_table(engine)
+    with engine.connect() as conn:
+        row = conn.execute(text(queries.load("idempotency_last_run"))).mappings().first()
+    return dict(row) if row else None

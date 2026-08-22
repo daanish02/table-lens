@@ -4,7 +4,10 @@ results."""
 from fastapi import APIRouter, HTTPException, Request
 
 from app.db import get_engine
-from app.discovery import run_discovery, get_discovery_status, list_table_descriptions, get_column_descriptions
+from app.discovery import (
+    run_discovery, get_discovery_status, list_table_descriptions, get_column_descriptions,
+    get_overview_stats, get_last_run,
+)
 from app.api.middleware import limiter
 from app.utils import get_logger
 
@@ -43,3 +46,10 @@ def discover_results(request: Request):
 def discover_table_columns(request: Request, table_name: str):
     engine = get_engine()
     return {"columns": get_column_descriptions(engine, table_name)}
+
+
+@router.get("/overview")
+@limiter.limit("20/minute")
+def discover_overview(request: Request):
+    engine = get_engine()
+    return {"stats": get_overview_stats(engine), "last_run": get_last_run(engine)}

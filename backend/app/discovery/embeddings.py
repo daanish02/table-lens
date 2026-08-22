@@ -107,3 +107,9 @@ def get_column_descriptions(engine: Engine, table_name: str) -> list[dict]:
     with engine.connect() as conn:
         rows = conn.execute(text(queries.load("embeddings_list_columns")), {"t": table_name}).mappings().all()
     return [dict(r) for r in rows]
+
+
+def get_overview_stats(engine: Engine) -> dict:
+    with engine.connect() as conn:
+        row = conn.execute(text(queries.load("embeddings_overview_stats"))).mappings().first()
+    return dict(row)
