@@ -6,6 +6,7 @@ import { apiClient } from "../lib/api-client";
 import { logger } from "../lib/logger";
 import { formatCount, formatCell } from "../lib/format";
 import { Skeleton, SkeletonCard } from "./Skeleton";
+import EChart from "./EChart";
 
 type BrowseResponse = {
   table: string;
@@ -203,11 +204,16 @@ function ColumnCard({ col }: { col: ColumnResult }) {
       <div style={styles.columnCardName}>{col.column_name}</div>
       {col.description && <div style={styles.columnCardDesc}>{col.description}</div>}
 
-      {hasHistogram && <BarChart data={profile!.histogram} />}
+      {hasHistogram && (
+        <ProfileBarChart
+          labels={profile!.histogram.map(([edge]) => formatAxisNumber(edge))}
+          counts={profile!.histogram.map(([, c]) => c)}
+        />
+      )}
       {hasTopValues && (
-        <BarChart
-          data={profile!.top_values.map(([, c], i) => [i, c] as [number, number])}
+        <ProfileBarChart
           labels={profile!.top_values.map(([v]) => String(v))}
+          counts={profile!.top_values.map(([, c]) => c)}
         />
       )}
 
@@ -235,37 +241,55 @@ function StatBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-function BarChart({ data, labels }: { data: [number, number][]; labels?: string[] }) {
-  const width = 200;
-  const height = 48;
-  const max = Math.max(...data.map(([, c]) => c), 1);
-  const barWidth = width / data.length;
-  return (
-    <div>
-      <svg width={width} height={height} style={{ display: "block" }}>
-        {data.map(([bucket, count], i) => {
-          const h = (count / max) * height;
-          return (
-            <rect
-              key={bucket}
-              x={i * barWidth}
-              y={height - h}
-              width={Math.max(barWidth - 1, 1)}
-              height={h}
-              style={{ fill: "var(--accent)", opacity: 0.8 }}
-            />
-          );
-        })}
-      </svg>
-      {labels && (
-        <div style={styles.barLabels}>
-          {labels.map((l, i) => (
-            <span key={i} style={styles.barLabel}>{l}</span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+function formatAxisNumber(n: number): string {
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  if (Number.isInteger(n)) return String(n);
+  return n.toFixed(2);
+}
+
+function useThemeColors() {
+  const [colors, setColors] = useState({ accent: "#067f74", text: "#6b6b74", grid: "#e2e2e6" });
+  useEffect(() => {
+    const style = getComputedStyle(document.documentElement);
+    setColors({
+      accent: style.getPropertyValue("--accent").trim() || "#067f74",
+      text: style.getPropertyValue("--text-dim").trim() || "#6b6b74",
+      grid: style.getPropertyValue("--border").trim() || "#e2e2e6",
+    });
+  }, []);
+  return colors;
+}
+
+function ProfileBarChart({ labels, counts }: { labels: string[]; counts: number[] }) {
+  const { accent, text, grid } = useThemeColors();
+  const option = {
+    grid: { left: 4, right: 4, top: 8, bottom: 28, containLabel: true },
+    tooltip: { trigger: "axis" as const, axisPointer: { type: "shadow" as const } },
+    xAxis: {
+      type: "category" as const,
+      data: labels,
+      axisLine: { lineStyle: { color: grid } },
+      axisTick: { show: false },
+      axisLabel: { color: text, fontSize: 10, interval: 0, rotate: labels.length > 8 ? 45 : 0 },
+    },
+    yAxis: {
+      type: "value" as const,
+      axisLine: { show: false },
+      axisLabel: { color: text, fontSize: 10 },
+      splitLine: { lineStyle: { color: grid } },
+    },
+    series: [
+      {
+        type: "bar" as const,
+        data: counts,
+        itemStyle: { color: accent, opacity: 0.85 },
+        barMaxWidth: 28,
+      },
+    ],
+  };
+  return <EChart option={option} height={150} />;
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -426,18 +450,5 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: "0.05em",
     textTransform: "uppercase",
     color: "var(--text-faint)",
-  },
-  barLabels: {
-    display: "flex",
-    justifyContent: "space-between",
-    fontSize: 9,
-    color: "var(--text-faint)",
-    marginTop: 2,
-  },
-  barLabel: {
-    maxWidth: 24,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
   },
 };

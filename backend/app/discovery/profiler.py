@@ -27,7 +27,7 @@ class ColumnProfile(BaseModel):
     p50: float | None = None
     p95: float | None = None
     top_values: list[tuple] = Field(default_factory=list)
-    histogram: list[tuple] = Field(default_factory=list)  # numeric only: (bucket_index, count)
+    histogram: list[tuple] = Field(default_factory=list)  # numeric only: (bucket_min_value, count)
 
 
 def _source(schema: str, table: str, row_count: int) -> str:
@@ -135,7 +135,7 @@ def profile_table(engine: Engine, schema: str, table: TableInfo) -> dict:
                         min_val=profile.min_value, max_val=profile.max_value, buckets=buckets,
                     )
                 )).all()
-                profile.histogram = [(r[0], r[1]) for r in rows]
+                profile.histogram = [(r[2], r[1]) for r in rows]
 
     log.info(f"profiled table {table.name}: {len(profiles)} columns")
     return profiles
