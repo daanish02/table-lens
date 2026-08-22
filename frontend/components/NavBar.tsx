@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import ThemeToggle from "./ThemeToggle";
 
 const LINKS = [
   { href: "/data", label: "data" },
@@ -14,12 +15,15 @@ export default function NavBar() {
   return (
     <nav style={styles.nav}>
       <Link href="/" style={styles.wordmark}>Table Lens</Link>
-      <div style={styles.links}>
-        {LINKS.map((l) => (
-          <Link key={l.href} href={l.href} style={{ ...styles.link, ...(pathname?.startsWith(l.href) ? styles.linkActive : {}) }}>
-            {l.label}
-          </Link>
-        ))}
+      <div style={styles.right}>
+        <div style={styles.links}>
+          {LINKS.map((l) => (
+            <Link key={l.href} href={l.href} style={{ ...styles.link, ...(pathname?.startsWith(l.href) ? styles.linkActive : {}) }}>
+              {l.label}
+            </Link>
+          ))}
+        </div>
+        <ThemeToggle />
       </div>
     </nav>
   );
@@ -41,6 +45,11 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: "-0.02em",
     color: "var(--text)",
     textDecoration: "none",
+  },
+  right: {
+    display: "flex",
+    alignItems: "center",
+    gap: 24,
   },
   links: {
     display: "flex",
