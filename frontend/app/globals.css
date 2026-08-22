@@ -156,3 +156,7 @@ a {
 .markdown-body a {
   color: var(--accent);
 }
+
+.footer-link:hover {
+  color: var(--accent);
+}

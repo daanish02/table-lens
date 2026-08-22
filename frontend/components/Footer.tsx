@@ -1,0 +1,47 @@
+"use client";
+
+import { AUTHOR_HANDLE, AUTHOR_GITHUB_URL, getAuthorEmail } from "../lib/site";
+
+export default function Footer() {
+  return (
+    <footer style={styles.footer}>
+      <span>
+        Built by{" "}
+        <a href={AUTHOR_GITHUB_URL} target="_blank" rel="noopener noreferrer" className="footer-link" style={styles.link}>
+          @{AUTHOR_HANDLE}
+        </a>
+      </span>
+      <a
+        href="#"
+        className="footer-link"
+        style={styles.link}
+        onClick={(e) => {
+          // Address is built and navigated to in one step, client-side
+          // only — the real mailto: string never sits in the DOM/HTML for
+          // scrapers to harvest, only "#" ever appears as the href.
+          e.preventDefault();
+          window.location.href = `mailto:${getAuthorEmail()}`;
+        }}
+      >
+        email
+      </a>
+    </footer>
+  );
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  footer: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "14px 24px",
+    borderTop: "1px solid var(--border)",
+    background: "var(--bg)",
+    fontSize: 11,
+    color: "var(--text-faint)",
+  },
+  link: {
+    color: "var(--text-faint)",
+    textDecoration: "none",
+  },
+};

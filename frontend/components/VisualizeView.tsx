@@ -434,7 +434,7 @@ function ProgressLineView({ line }: { line: ProgressLine }) {
 const styles: Record<string, React.CSSProperties> = {
   split: {
     display: "flex",
-    height: "calc(100vh - 55px)",
+    height: "calc(100vh - 55px - 45px)", // full viewport minus nav bar and footer
   },
   chatPanel: {
     flexShrink: 0,

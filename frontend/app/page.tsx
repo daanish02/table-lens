@@ -25,6 +25,14 @@ export default function HomePage() {
             plain-English summary.
           </div>
         </Link>
+
+        <Link href="/visualize" style={styles.card}>
+          <div style={styles.cardTitle}>Visualize →</div>
+          <div style={styles.cardDesc}>
+            Describe the chart you want, get an auto-picked visualization, one at a time
+            or built up into a saved dashboard.
+          </div>
+        </Link>
       </div>
     </main>
   );

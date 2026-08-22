@@ -1,5 +1,6 @@
 import "./globals.css";
 import NavBar from "../components/NavBar";
+import Footer from "../components/Footer";
 
 export const metadata = {
   title: "Table Lens",
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="bg-mesh" />
         <NavBar />
         {children}
+        <Footer />
       </body>
     </html>
   );
