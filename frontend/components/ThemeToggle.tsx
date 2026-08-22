@@ -42,7 +42,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--text-dim)",
     padding: "4px 10px",
     fontFamily: "var(--mono)",
-    fontSize: 11,
+    fontSize: 12.5,
     cursor: "pointer",
     borderRadius: 2,
   },

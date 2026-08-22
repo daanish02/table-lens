@@ -40,7 +40,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: "relative",
   },
   wordmark: {
-    fontSize: 15,
+    fontSize: 16.5,
     fontWeight: 600,
     letterSpacing: "-0.02em",
     color: "var(--text)",
@@ -56,7 +56,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 20,
   },
   link: {
-    fontSize: 13,
+    fontSize: 14.5,
     color: "var(--text-dim)",
     textDecoration: "none",
   },
