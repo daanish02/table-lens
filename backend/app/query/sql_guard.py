@@ -35,4 +35,6 @@ def validate_and_normalize(sql: str, default_limit: int = DEFAULT_LIMIT) -> str:
     if not stmt.args.get("limit"):
         stmt = stmt.limit(default_limit)
 
-    return stmt.sql(dialect=DIALECT)
+    # pretty=True gives readable multi-line SQL — this is the version both
+    # executed and shown to the user, so what runs is exactly what's shown.
+    return stmt.sql(dialect=DIALECT, pretty=True)

@@ -9,6 +9,7 @@ type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   error?: boolean;
+  elapsedMs?: number;
 };
 
 type QueryResult = {
@@ -18,12 +19,20 @@ type QueryResult = {
   rows: Record<string, unknown>[] | null;
   row_count: number | null;
   headline: string | null;
+  elapsed_ms: number;
 };
 
 const PAGE_SIZE = 50;
-const MIN_SPLIT_PCT = 20;
-const MAX_SPLIT_PCT = 85;
-const DEFAULT_SPLIT_PCT = 70;
+const MIN_V_SPLIT_PCT = 20;
+const MAX_V_SPLIT_PCT = 85;
+const DEFAULT_V_SPLIT_PCT = 70;
+const MIN_CHAT_PCT = 20;
+const MAX_CHAT_PCT = 60;
+const DEFAULT_CHAT_PCT = 100 / 3;
+
+function formatElapsed(ms: number): string {
+  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
 
 export default function AskView() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -31,11 +40,15 @@ export default function AskView() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<QueryResult | null>(null);
   const [page, setPage] = useState(1);
-  const [splitPct, setSplitPct] = useState(DEFAULT_SPLIT_PCT);
+  const [vSplitPct, setVSplitPct] = useState(DEFAULT_V_SPLIT_PCT);
+  const [chatPct, setChatPct] = useState(DEFAULT_CHAT_PCT);
+  const [copied, setCopied] = useState(false);
 
   const chatLogRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const resultsPanelRef = useRef<HTMLDivElement>(null);
-  const draggingRef = useRef(false);
+  const draggingV = useRef(false);
+  const draggingH = useRef(false);
 
   useEffect(() => {
     chatLogRef.current?.scrollTo({ top: chatLogRef.current.scrollHeight, behavior: "smooth" });
@@ -43,13 +56,20 @@ export default function AskView() {
 
   useEffect(() => {
     function onMove(e: MouseEvent) {
-      if (!draggingRef.current || !resultsPanelRef.current) return;
-      const rect = resultsPanelRef.current.getBoundingClientRect();
-      const pct = ((e.clientY - rect.top) / rect.height) * 100;
-      setSplitPct(Math.min(MAX_SPLIT_PCT, Math.max(MIN_SPLIT_PCT, pct)));
+      if (draggingV.current && resultsPanelRef.current) {
+        const rect = resultsPanelRef.current.getBoundingClientRect();
+        const pct = ((e.clientY - rect.top) / rect.height) * 100;
+        setVSplitPct(Math.min(MAX_V_SPLIT_PCT, Math.max(MIN_V_SPLIT_PCT, pct)));
+      }
+      if (draggingH.current && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const pct = ((e.clientX - rect.left) / rect.width) * 100;
+        setChatPct(Math.min(MAX_CHAT_PCT, Math.max(MIN_CHAT_PCT, pct)));
+      }
     }
     function onUp() {
-      draggingRef.current = false;
+      draggingV.current = false;
+      draggingH.current = false;
     }
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
@@ -70,7 +90,7 @@ export default function AskView() {
 
     try {
       const res = await apiClient.post<QueryResult>("/api/query", { question, history });
-      setMessages((prev) => [...prev, { role: "assistant", content: res.answer || res.headline || "(no answer)" }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: res.answer || res.headline || "(no answer)", elapsedMs: res.elapsed_ms }]);
       if (res.sql) {
         setResult(res);
         setPage(1);
@@ -90,21 +110,35 @@ export default function AskView() {
     }
   }
 
+  async function copySql() {
+    if (!result?.sql) return;
+    try {
+      await navigator.clipboard.writeText(result.sql);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      logger.error("copy failed", err);
+    }
+  }
+
   const rows = result?.rows ?? [];
   const columns = result?.columns ?? [];
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div style={styles.split}>
-      <div style={styles.chatPanel}>
+    <div style={styles.split} ref={containerRef}>
+      <div style={{ ...styles.chatPanel, width: `${chatPct}%` }}>
         <div style={styles.chatLog} ref={chatLogRef}>
           {messages.length === 0 && (
             <div style={styles.emptyHint}>Ask a question about your data — e.g. "how many claims are approved?"</div>
           )}
           {messages.map((m, i) => (
-            <div key={i} style={{ ...styles.bubble, ...(m.role === "user" ? styles.bubbleUser : styles.bubbleAssistant), ...(m.error ? styles.bubbleError : {}) }}>
-              {m.content}
+            <div key={i} style={styles.bubbleRow}>
+              <div style={{ ...styles.bubble, ...(m.role === "user" ? styles.bubbleUser : styles.bubbleAssistant), ...(m.error ? styles.bubbleError : {}) }}>
+                {m.content}
+              </div>
+              {m.elapsedMs !== undefined && <div style={styles.elapsedTag}>{formatElapsed(m.elapsedMs)}</div>}
             </div>
           ))}
           {loading && (
@@ -126,8 +160,18 @@ export default function AskView() {
         </div>
       </div>
 
+      <div
+        style={styles.hDivider}
+        onMouseDown={(e) => {
+          draggingH.current = true;
+          e.preventDefault();
+        }}
+      >
+        <div style={styles.hDividerHandle} />
+      </div>
+
       <div style={styles.resultsPanel} ref={resultsPanelRef}>
-        <div style={{ ...styles.tableSection, height: `${splitPct}%` }}>
+        <div style={{ ...styles.tableSection, height: `${vSplitPct}%` }}>
           {!result && <div style={styles.emptyHint}>Results will appear here once you ask a question.</div>}
           {result && (
             <>
@@ -164,17 +208,22 @@ export default function AskView() {
         </div>
 
         <div
-          style={styles.divider}
+          style={styles.vDivider}
           onMouseDown={(e) => {
-            draggingRef.current = true;
+            draggingV.current = true;
             e.preventDefault();
           }}
         >
-          <div style={styles.dividerHandle} />
+          <div style={styles.vDividerHandle} />
         </div>
 
-        <div style={{ ...styles.sqlSection, height: `${100 - splitPct}%` }}>
-          <div style={styles.sectionTitle}>sql</div>
+        <div style={{ ...styles.sqlSection, height: `${100 - vSplitPct}%` }}>
+          <div style={styles.sqlHeader}>
+            <div style={styles.sectionTitle}>sql</div>
+            {result?.sql && (
+              <button style={styles.copyButton} onClick={copySql}>{copied ? "copied" : "copy"}</button>
+            )}
+          </div>
           <pre style={styles.sqlBox}>{result?.sql ?? "—"}</pre>
         </div>
       </div>
@@ -188,11 +237,10 @@ const styles: Record<string, React.CSSProperties> = {
     height: "calc(100vh - 55px)", // full viewport minus nav bar
   },
   chatPanel: {
-    width: 380,
     flexShrink: 0,
     display: "flex",
     flexDirection: "column",
-    borderRight: "1px solid var(--border)",
+    minWidth: 0,
   },
   chatLog: {
     flex: 1,
@@ -207,6 +255,10 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--text-faint)",
     lineHeight: 1.5,
     padding: "8px 4px",
+  },
+  bubbleRow: {
+    display: "flex",
+    flexDirection: "column",
   },
   bubble: {
     fontSize: 13,
@@ -230,6 +282,13 @@ const styles: Record<string, React.CSSProperties> = {
   bubbleError: {
     borderColor: "var(--error)",
     color: "var(--error)",
+  },
+  elapsedTag: {
+    alignSelf: "flex-start",
+    fontSize: 10,
+    color: "var(--text-faint)",
+    marginTop: 3,
+    marginLeft: 2,
   },
   dim: {
     color: "var(--text-dim)",
@@ -261,6 +320,23 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     cursor: "pointer",
     borderRadius: 2,
+  },
+  hDivider: {
+    width: 10,
+    flexShrink: 0,
+    cursor: "col-resize",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderLeft: "1px solid var(--border)",
+    borderRight: "1px solid var(--border)",
+    background: "var(--surface)",
+  },
+  hDividerHandle: {
+    width: 3,
+    height: 32,
+    borderRadius: 2,
+    background: "var(--border-strong)",
   },
   resultsPanel: {
     flex: 1,
@@ -329,7 +405,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     borderRadius: 2,
   },
-  divider: {
+  vDivider: {
     height: 10,
     flexShrink: 0,
     cursor: "row-resize",
@@ -340,7 +416,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: "1px solid var(--border)",
     background: "var(--surface)",
   },
-  dividerHandle: {
+  vDividerHandle: {
     width: 32,
     height: 3,
     borderRadius: 2,
@@ -353,13 +429,28 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     minHeight: 0,
   },
+  sqlHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    flexShrink: 0,
+  },
   sectionTitle: {
     fontSize: 11,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
     color: "var(--text-faint)",
-    marginBottom: 8,
-    flexShrink: 0,
+  },
+  copyButton: {
+    background: "transparent",
+    border: "1px solid var(--border)",
+    color: "var(--text-dim)",
+    padding: "3px 10px",
+    fontFamily: "var(--mono)",
+    fontSize: 11,
+    cursor: "pointer",
+    borderRadius: 2,
   },
   sqlBox: {
     flex: 1,

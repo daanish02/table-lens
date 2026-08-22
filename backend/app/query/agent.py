@@ -7,6 +7,7 @@ Agent)."""
 import json
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage, AIMessage
+from langgraph.errors import GraphRecursionError
 from sqlalchemy import Engine
 
 from app.query import prompts, tools as tools_module
@@ -18,10 +19,12 @@ __all__ = ["ask"]
 
 log = get_logger(__name__)
 
-# Bounds total tool-call rounds per question — generous enough for
-# search_tables -> a few search_columns -> run_sql -> up to ~3 retries, but
-# not unbounded (each superstep is a real LLM call).
-RECURSION_LIMIT = 20
+# Bounds total tool-call rounds per question. A genuinely open-ended
+# analytical question (e.g. "are our underwriters too conservative?") can
+# legitimately need several rounds of search_tables/search_columns plus
+# more than one run_sql attempt across different angles — 20 was measured
+# too tight and cut off a question that was making real progress.
+RECURSION_LIMIT = 45
 
 
 def _last_successful_sql_result(messages: list) -> dict | None:
@@ -53,14 +56,38 @@ def ask(engine: Engine, question: str, history: list[tuple[str, str]] | None = N
     conversation.append(HumanMessage(content=question))
 
     log.info(f"query agent: {question!r}")
-    result = agent.invoke({"messages": conversation}, config={"recursion_limit": RECURSION_LIMIT})
 
-    messages = result["messages"]
-    answer = messages[-1].content if messages else ""
+    # Streaming (not invoke) so that hitting the recursion limit doesn't
+    # lose everything the agent already found — invoke() only returns on
+    # clean completion, raising GraphRecursionError with no access to the
+    # partial state. Streaming keeps the last successfully reached state,
+    # which still has whatever run_sql results the agent got before running
+    # out of steps.
+    last_state = {"messages": conversation}
+    hit_recursion_limit = False
+    try:
+        for state in agent.stream({"messages": conversation}, config={"recursion_limit": RECURSION_LIMIT}, stream_mode="values"):
+            last_state = state
+    except GraphRecursionError:
+        hit_recursion_limit = True
+        log.warning(f"recursion limit ({RECURSION_LIMIT}) hit for question: {question!r}")
+
+    messages = last_state["messages"]
     sql_result = _last_successful_sql_result(messages)
+    last_text = next((m.content for m in reversed(messages) if type(m).__name__ == "AIMessage" and m.content), "")
+
+    if hit_recursion_limit:
+        answer = (
+            (last_text + "\n\n" if last_text else "")
+            + ("This needed more exploration than I could finish — the SQL/results shown are the most relevant I found, but I didn't get to fully verify or explain them. Try a more specific question."
+               if sql_result else
+               "This question needed more exploration than I could complete — try breaking it into a more specific question.")
+        )
+    else:
+        answer = last_text
 
     headline = None
-    if sql_result:
+    if sql_result and not hit_recursion_limit:
         headline = generate_headline(question, sql_result["sql"], sql_result)
 
     return {
