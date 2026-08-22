@@ -9,6 +9,27 @@ export default function HomePage() {
         an agent discovers your schema, understands what it means, and answers by querying it directly.
       </p>
 
+      <hr style={styles.rule} />
+
+      <p style={styles.about}>
+        The database behind this instance is a synthetic property &amp; casualty insurance book —
+        customers, policies, agents, claims, underwriting, fraud flags, call-center interactions, and
+        audit trails — modeling how a mid-size insurer&apos;s data actually looks spread across
+        departments, not one tidy spreadsheet.
+      </p>
+
+      <p style={styles.about}>
+        It&apos;s messy on purpose, the way real operational data is: 50 tables, 2,215 columns, and
+        over 5 million rows, ranging from small lookup tables to a 500,000-row audit log. Column
+        types and null rates vary wildly table to table, denormalized monthly snapshots sit next to
+        raw transactional logs, timestamps are stored without timezone, some tables run 15+ columns
+        wide, and a few table names are ambiguous enough that the discovery agent's own generated
+        description needed correcting. This is the kind of database Table Lens actually has to reason
+        about — not one built to make discovery look easy.
+      </p>
+
+      <hr style={styles.rule} />
+
       <div style={styles.sections}>
         <Link href="/data" style={styles.card}>
           <div style={styles.cardTitle}>Data →</div>
@@ -57,11 +78,22 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 16,
     maxWidth: 520,
   },
+  rule: {
+    border: "none",
+    borderTop: "1px solid var(--border)",
+    margin: "28px 0",
+  },
+  about: {
+    fontSize: 13,
+    color: "var(--text-dim)",
+    lineHeight: 1.65,
+    margin: "16px 0",
+  },
   sections: {
     display: "flex",
     flexDirection: "column",
     gap: 12,
-    marginTop: 40,
+    marginTop: 8,
   },
   card: {
     display: "block",
