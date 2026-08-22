@@ -7,12 +7,14 @@ import { apiClient } from "../lib/api-client";
 import { logger } from "../lib/logger";
 import { formatCell, formatCount } from "../lib/format";
 
+type ProgressLine = { text: string; ok?: boolean };
+
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   error?: boolean;
   elapsedMs?: number;
-  steps?: string[];
+  steps?: ProgressLine[];
 };
 
 type QueryResult = {
@@ -34,11 +36,11 @@ type StreamEvent =
 function toolCallLabel(tool: string, args: Record<string, unknown>): string {
   switch (tool) {
     case "search_tables":
-      return `🔍 searching tables for "${args.query}"`;
+      return `searching tables for "${args.query}"`;
     case "search_columns":
-      return `📋 checking columns in ${args.table_name}`;
+      return `checking columns in ${args.table_name}`;
     case "run_sql":
-      return "▶ running SQL";
+      return "running SQL";
     default:
       return `calling ${tool}`;
   }
@@ -60,7 +62,7 @@ export default function AskView() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [progressLines, setProgressLines] = useState<string[]>([]);
+  const [progressLines, setProgressLines] = useState<ProgressLine[]>([]);
   const [streamingText, setStreamingText] = useState("");
   const [result, setResult] = useState<QueryResult | null>(null);
   const [page, setPage] = useState(1);
@@ -117,17 +119,17 @@ export default function AskView() {
 
     let liveAnswer = "";
     let finalResult: QueryResult | null = null;
-    const stepsAcc: string[] = [];
+    const stepsAcc: ProgressLine[] = [];
 
     try {
       await apiClient.streamPost<StreamEvent>("/api/query", { question, history }, (event) => {
         if (event.type === "tool_call") {
-          const line = toolCallLabel(event.tool, event.args);
+          const line: ProgressLine = { text: toolCallLabel(event.tool, event.args) };
           stepsAcc.push(line);
           setProgressLines((prev) => [...prev, line]);
         } else if (event.type === "tool_result" && event.tool === "run_sql") {
           const ok = !event.summary.startsWith("error");
-          const line = `${ok ? "✓" : "✗"} ${event.summary}`;
+          const line: ProgressLine = { text: event.summary, ok };
           stepsAcc.push(line);
           setProgressLines((prev) => [...prev, line]);
         } else if (event.type === "answer_delta") {
@@ -217,7 +219,7 @@ export default function AskView() {
                   {expandedSteps.has(i) && (
                     <div style={styles.progressBox}>
                       {m.steps.map((line, j) => (
-                        <div key={j} style={styles.progressLine}>{line}</div>
+                        <ProgressLineView key={j} line={line} />
                       ))}
                     </div>
                   )}
@@ -240,7 +242,7 @@ export default function AskView() {
               {progressLines.length > 0 && (
                 <div style={styles.progressBox}>
                   {progressLines.map((line, i) => (
-                    <div key={i} style={styles.progressLine}>{line}</div>
+                    <ProgressLineView key={i} line={line} />
                   ))}
                 </div>
               )}
@@ -345,6 +347,17 @@ export default function AskView() {
   );
 }
 
+function ProgressLineView({ line }: { line: ProgressLine }) {
+  if (line.ok === undefined) {
+    return <div style={styles.progressLine}>{line.text}</div>;
+  }
+  return (
+    <div style={styles.progressLine}>
+      <span style={line.ok ? styles.progressOk : styles.progressErr}>{line.ok ? "✓" : "✗"}</span> {line.text}
+    </div>
+  );
+}
+
 const styles: Record<string, React.CSSProperties> = {
   split: {
     display: "flex",
@@ -434,6 +447,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 11,
     color: "var(--text-faint)",
     fontFamily: "var(--mono)",
+  },
+  progressOk: {
+    color: "var(--accent)",
+  },
+  progressErr: {
+    color: "var(--error)",
   },
   cursor: {
     display: "inline-block",
