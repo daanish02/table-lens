@@ -323,7 +323,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     lineHeight: 1.6,
     color: "var(--text-dim)",
-    maxWidth: 760,
   },
   tableMetaStats: {
     display: "flex",
@@ -406,7 +405,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   columnGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
     gap: 12,
   },
   columnCard: {

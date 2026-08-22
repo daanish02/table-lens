@@ -476,7 +476,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tableGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
     gap: 12,
   },
   tableCard: {
@@ -486,7 +486,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "14px 16px",
     textDecoration: "none",
     color: "var(--text)",
-    background: "var(--bg)",
+    background: "var(--surface)",
   },
   tableCardName: {
     fontSize: 13,
@@ -500,7 +500,7 @@ const styles: Record<string, React.CSSProperties> = {
   tableCardDesc: {
     fontFamily: "var(--sans)",
     fontSize: 13,
-    color: "var(--text-dim)",
+    color: "var(--text)",
     marginTop: 8,
     lineHeight: 1.6,
     display: "-webkit-box",
