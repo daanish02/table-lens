@@ -26,9 +26,14 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 LLM_MODEL = "deepseek/deepseek-v4-flash-0731"       # OpenRouter model slug
 LLM_MAX_RETRIES = 3
-LLM_MAX_TOKENS = 600                                # deepseek-v4-flash spends ~100-150 on internal
-                                                     # reasoning before any answer text — 200 left ~0
-                                                     # tokens for the actual description (empty output)
+LLM_MAX_TOKENS = 4000                               # deepseek-v4-flash spends a variable amount on
+                                                     # internal reasoning before any answer text — a
+                                                     # truncated call (empty output) wastes the whole
+                                                     # request and needs a retry, which costs more than
+                                                     # generous headroom on a cheap model. The old
+                                                     # unbounded default (65536) ran fine per-call; this
+                                                     # just caps a single pathological runaway, not the
+                                                     # normal case.
 EMBEDDING_MODEL = "openai/text-embedding-3-small"   # OpenRouter model slug
 EMBEDDING_DIM = 768                                 # truncated via dimensions= (native is 1536)
 

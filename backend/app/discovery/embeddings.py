@@ -21,6 +21,25 @@ def _get_embeddings():
     )
 
 
+def _embed_batch_with_fallback(embedder, texts: list[str]) -> list[list[float]]:
+    """Batching is the fast path (verified working at 360-text scale
+    against OpenRouter) — but a batch call can still fail outright (one
+    malformed text, a transient provider error). Falling back to one call
+    per text salvages the rest instead of losing the whole table."""
+    try:
+        return embedder.embed_documents(texts)
+    except Exception as e:
+        log.error(f"batch embedding failed ({len(texts)} texts), falling back to per-text calls: {e}")
+        vectors = []
+        for t in texts:
+            try:
+                vectors.append(embedder.embed_query(t))
+            except Exception as e2:
+                log.error(f"embedding a single text failed, using zero-vector placeholder: {e2}")
+                vectors.append([0.0] * EMBEDDING_DIM)
+        return vectors
+
+
 def embed_and_store(
     engine: Engine,
     table_name: str,
@@ -34,7 +53,7 @@ def embed_and_store(
     # N+1 sequential embedding round-trips per table down to 1.
     col_names = list(column_descriptions.keys())
     texts = [table_description] + [column_descriptions[c] for c in col_names]
-    vectors = embedder.embed_documents(texts)
+    vectors = _embed_batch_with_fallback(embedder, texts)
     table_vec, *col_vecs = vectors
     log.info(f"embedding table + {len(col_names)} columns: {table_name}")
 
