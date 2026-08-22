@@ -19,6 +19,7 @@
   --error-dim: rgba(197, 61, 66, 0.08);
   --shimmer: rgba(0, 0, 0, 0.05);
   --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  --sans: var(--sans-loaded), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 :root[data-theme="dark"] {
@@ -101,8 +102,9 @@ a {
    agent's answers often include tables/bold/lists, which used to render as
    raw pipes and asterisks with no formatting at all. */
 .markdown-body {
-  font-size: 13px;
-  line-height: 1.5;
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
 }
 .markdown-body > *:first-child {
   margin-top: 0;

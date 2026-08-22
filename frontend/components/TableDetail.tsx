@@ -337,11 +337,12 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--text)",
   },
   columnCardDesc: {
-    fontSize: 11,
+    fontFamily: "var(--sans)",
+    fontSize: 12,
     color: "var(--text-dim)",
     marginTop: 4,
     marginBottom: 10,
-    lineHeight: 1.4,
+    lineHeight: 1.55,
   },
   columnCardStats: {
     display: "flex",

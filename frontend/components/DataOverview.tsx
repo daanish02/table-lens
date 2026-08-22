@@ -498,10 +498,11 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 4,
   },
   tableCardDesc: {
-    fontSize: 12,
+    fontFamily: "var(--sans)",
+    fontSize: 13,
     color: "var(--text-dim)",
     marginTop: 8,
-    lineHeight: 1.5,
+    lineHeight: 1.6,
     display: "-webkit-box",
     WebkitLineClamp: 3,
     WebkitBoxOrient: "vertical",
