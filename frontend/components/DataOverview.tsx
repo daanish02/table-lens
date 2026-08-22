@@ -197,7 +197,11 @@ export default function DataOverview() {
               label="last run"
               value={
                 overview.last_run
-                  ? `${overview.last_run.status}${overview.last_run.finished_at ? " · " + formatDateTime(overview.last_run.finished_at) : ""}`
+                  ? overview.last_run.status === "done"
+                    ? overview.last_run.finished_at
+                      ? formatDateTime(overview.last_run.finished_at)
+                      : "done"
+                    : `${overview.last_run.status}${overview.last_run.finished_at ? " · " + formatDateTime(overview.last_run.finished_at) : ""}`
                   : "never"
               }
             />

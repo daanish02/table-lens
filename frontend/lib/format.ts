@@ -14,7 +14,7 @@ export function formatDateTime(iso: string): string {
 
 export function formatCount(n: number | null): string {
   if (n === null) return "—";
-  return n.toLocaleString();
+  return n.toLocaleString("en-US");
 }
 
 export function formatCell(v: unknown): string {

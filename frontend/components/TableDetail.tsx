@@ -133,7 +133,7 @@ export default function TableDetail({ table }: { table: string }) {
       {data && (
         <>
           <div style={styles.meta}>
-            {data.total_rows.toLocaleString()} rows · page {data.page} of {totalPages}
+            {data.total_rows.toLocaleString("en-US")} rows · page {data.page} of {totalPages}
           </div>
 
           <div style={styles.tableWrap}>
