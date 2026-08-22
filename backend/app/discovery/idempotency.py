@@ -44,6 +44,21 @@ def update_step(engine: Engine, run_id: str, step: str) -> None:
     log.info(f"discovery run {run_id} step: {step}")
 
 
+def set_progress_total(engine: Engine, run_id: str, total: int, done_already: int) -> None:
+    """total_tables is the whole schema; done_already accounts for tables a
+    resumed run is skipping (already completed by an earlier attempt) —
+    progress reflects true overall completion, not just this run's work."""
+    with engine.connect() as conn:
+        conn.execute(text(queries.load("idempotency_set_progress_total")), {"total": total, "done": done_already, "id": run_id})
+        conn.commit()
+
+
+def increment_tables_done(engine: Engine, run_id: str) -> None:
+    with engine.connect() as conn:
+        conn.execute(text(queries.load("idempotency_increment_tables_done")), {"id": run_id})
+        conn.commit()
+
+
 def mark_done(engine: Engine, run_id: str) -> None:
     with engine.connect() as conn:
         conn.execute(text(queries.load("idempotency_mark_done")), {"now": datetime.now(timezone.utc), "id": run_id})

@@ -26,4 +26,7 @@ def get_engine(readonly: bool = False) -> Engine:
     if not url:
         raise RuntimeError("SUPABASE_DB_URL is not set")
     log.info(f"creating DB engine (readonly={readonly})")
-    return create_engine(_normalize(url), pool_pre_ping=True)
+    # Explicit, modest pool size — Supabase's session-mode pooler caps at 15
+    # total connections; SQLAlchemy's default (5 + 10 overflow = 15) leaves
+    # zero headroom for anything else hitting the same pooler concurrently.
+    return create_engine(_normalize(url), pool_pre_ping=True, pool_size=6, max_overflow=2)

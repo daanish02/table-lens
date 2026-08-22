@@ -3,10 +3,13 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from sqlalchemy import text
 
-from app.config import DEMO_SCHEMA, DISCOVERY_DESCRIBE_CONCURRENCY
+from app.config import DEMO_SCHEMA, DISCOVERY_DESCRIBE_CONCURRENCY, DISCOVERY_PROFILE_CONCURRENCY
 from app.db.connection import get_engine
 from app.db.migrate import run_migrations
-from app.discovery.idempotency import schema_hash, should_skip, start_run, update_step, mark_done, mark_failed, get_status
+from app.discovery.idempotency import (
+    schema_hash, should_skip, start_run, update_step, mark_done, mark_failed, get_status,
+    set_progress_total, increment_tables_done,
+)
 from app.discovery.introspect import get_schema_snapshot, to_hashable
 from app.discovery.profiler import profile_table
 from app.discovery.relationships import infer_relationships
@@ -55,6 +58,11 @@ def _describe_and_embed_table(engine, run_id: str, schema: str, table, profiles:
 
     update_step(engine, run_id, f"embedding:{table.name}")
     embed_and_store(engine, table.name, table_desc, column_descs)
+    # Distinct "done" marker (not just "embedding:X") so the frontend can
+    # tell a table's work actually finished, and how many columns it got —
+    # "embedding:X" alone doesn't say whether it's still in flight or done.
+    update_step(engine, run_id, f"table_done:{table.name}:{len(column_descs)}")
+    increment_tables_done(engine, run_id)
 
 
 def _run_pipeline(engine, run_id: str, schema: str, tables) -> None:
@@ -64,21 +72,42 @@ def _run_pipeline(engine, run_id: str, schema: str, tables) -> None:
     # than redoing already-paid-for LLM + embedding calls.
     remaining = [t for t in tables if not is_table_described(engine, t.name)]
     skipped = len(tables) - len(remaining)
+    set_progress_total(engine, run_id, total=len(tables), done_already=skipped)
     if skipped:
         log.info(f"resuming: {skipped} tables already described, {len(remaining)} remaining")
 
+    def _profile_one(t):
+        try:
+            return t.name, profile_table(engine, schema, t), None
+        except Exception as e:
+            return t.name, None, str(e)
+
     try:
         update_step(engine, run_id, "profiling")
+        # Profiling is DB-bound (SQL round-trips), not LLM-bound — tables
+        # are independent, so profile several concurrently instead of one
+        # at a time. This was the actual bottleneck behind "profiling takes
+        # an hour": schema introspection was optimized earlier, but the
+        # per-column statistics queries (the expensive part) never were.
         profiles_by_table = {}
-        for t in remaining:
-            profiles_by_table[t.name] = profile_table(engine, schema, t)
-            update_step(engine, run_id, f"profiling:{t.name}")
+        profile_failed: list[str] = []
+        with ThreadPoolExecutor(max_workers=DISCOVERY_PROFILE_CONCURRENCY) as pool:
+            for name, profile, err in pool.map(_profile_one, remaining):
+                if err is not None:
+                    log.error(f"profiling {name} failed: {err}")
+                    profile_failed.append(name)
+                else:
+                    profiles_by_table[name] = profile
+                update_step(engine, run_id, f"profiling:{name}")
+
+        if profile_failed:
+            remaining = [t for t in remaining if t.name not in profile_failed]
 
         update_step(engine, run_id, "inferring_relationships")
         infer_relationships(engine, schema, tables)  # logged; consumed by Stage 1b, not persisted here
     except Exception as e:
-        # Profiling/relationship inference are schema-wide, not per-table —
-        # a failure here means nothing downstream can proceed.
+        # Schema-wide failure (not a single table) — nothing downstream can
+        # proceed without it.
         mark_failed(engine, run_id, f"profiling/relationships failed: {e}")
         return
 
@@ -87,7 +116,7 @@ def _run_pipeline(engine, run_id: str, schema: str, tables) -> None:
     # single run makes maximum forward progress. Only mark_failed if
     # something is genuinely still incomplete at the end; resume then
     # retries just the failures, not everything.
-    table_failures: list[str] = []
+    table_failures: list[str] = list(profile_failed)
     for table in remaining:
         try:
             _describe_and_embed_table(engine, run_id, schema, table, profiles_by_table[table.name])

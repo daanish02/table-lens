@@ -1,0 +1,1 @@
+MIN({column}) AS c{idx}_min, MAX({column}) AS c{idx}_max, AVG({column}) AS c{idx}_mean, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {column}) AS c{idx}_p50, PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY {column}) AS c{idx}_p95

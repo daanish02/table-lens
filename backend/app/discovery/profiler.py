@@ -1,7 +1,10 @@
 from pydantic import BaseModel, Field
 from sqlalchemy import text, Engine
 
-from app.config import DISCOVERY_SAMPLE_PCT, DISCOVERY_LARGE_TABLE_ROWS, DISCOVERY_TOP_N_CATEGORICAL
+from app.config import (
+    DISCOVERY_SAMPLE_PCT, DISCOVERY_LARGE_TABLE_ROWS, DISCOVERY_TOP_N_CATEGORICAL,
+    DISCOVERY_PROFILE_BATCH_SIZE,
+)
 from app.discovery import queries
 from app.discovery.introspect import TableInfo
 from app.utils.logger import get_logger
@@ -36,46 +39,82 @@ def _row_count(conn, schema: str, table: str) -> int:
     return conn.execute(text(queries.load("profiler_row_count").format(schema=schema, table=table))).scalar()
 
 
+def _chunks(items: list, size: int):
+    for i in range(0, len(items), size):
+        yield items[i:i + size]
+
+
+def _profile_batch(conn, source: str, row_count: int, cols: list) -> dict[str, ColumnProfile]:
+    """One SELECT covering null_rate + distinct_count + type-specific stats
+    (numeric min/max/mean/p50/p95, or date min/max) for every column in this
+    batch — replaces what used to be 1-2 separate round-trips PER COLUMN,
+    the dominant cost across a wide schema (thousands of columns)."""
+    expressions = []
+    layout = []  # (col, kind), same order/index as the expressions above
+    for idx, col in enumerate(cols):
+        expressions.append(queries.load("profiler_batch_null_distinct_expr").format(column=col.name, idx=idx))
+        if col.data_type in NUMERIC_TYPES:
+            expressions.append(queries.load("profiler_batch_numeric_expr").format(column=col.name, idx=idx))
+            layout.append((col, "numeric"))
+        elif col.data_type in DATE_TYPES:
+            expressions.append(queries.load("profiler_batch_date_expr").format(column=col.name, idx=idx))
+            layout.append((col, "date"))
+        else:
+            layout.append((col, "categorical"))
+
+    sql = queries.load("profiler_batch_select").format(expressions=", ".join(expressions), source=source)
+    row = conn.execute(text(sql)).mappings().first()
+
+    profiles = {}
+    for idx, (col, kind) in enumerate(layout):
+        profile = ColumnProfile(
+            row_count=row_count,
+            null_rate=float(row[f"c{idx}_null"] or 0.0),
+            distinct_count=int(row[f"c{idx}_distinct"] or 0),
+        )
+        if kind == "numeric":
+            profile.min_value = row[f"c{idx}_min"]
+            profile.max_value = row[f"c{idx}_max"]
+            mean, p50, p95 = row[f"c{idx}_mean"], row[f"c{idx}_p50"], row[f"c{idx}_p95"]
+            profile.mean_value = float(mean) if mean is not None else None
+            profile.p50 = float(p50) if p50 is not None else None
+            profile.p95 = float(p95) if p95 is not None else None
+        elif kind == "date":
+            profile.min_value = row[f"c{idx}_min"]
+            profile.max_value = row[f"c{idx}_max"]
+        profiles[col.name] = profile
+
+    return profiles
+
+
 def profile_table(engine: Engine, schema: str, table: TableInfo) -> dict:
     log.info(f"profiling table: {table.name}")
     profiles: dict[str, ColumnProfile] = {}
+
     with engine.connect() as conn:
         row_count = _row_count(conn, schema, table.name)
         source = _source(schema, table.name, row_count)
 
-        for col in table.columns:
-            null_rate, distinct_count = conn.execute(text(
-                queries.load("profiler_null_distinct").format(column=col.name, source=source)
-            )).first()
+        for batch in _chunks(table.columns, DISCOVERY_PROFILE_BATCH_SIZE):
+            profiles.update(_profile_batch(conn, source, row_count, batch))
 
-            profile = ColumnProfile(
-                row_count=row_count,
-                null_rate=float(null_rate or 0.0),
-                distinct_count=int(distinct_count or 0),
-            )
-
-            if col.data_type in NUMERIC_TYPES:
-                stats = conn.execute(text(
-                    queries.load("profiler_numeric_stats").format(column=col.name, source=source)
-                )).first()
-                profile.min_value, profile.max_value, mean, p50, p95 = stats
-                profile.mean_value = float(mean) if mean is not None else None
-                profile.p50 = float(p50) if p50 is not None else None
-                profile.p95 = float(p95) if p95 is not None else None
-            elif col.data_type in DATE_TYPES:
-                min_v, max_v = conn.execute(text(
-                    queries.load("profiler_date_range").format(column=col.name, source=source)
-                )).first()
-                profile.min_value, profile.max_value = min_v, max_v
-            else:
+    # Top-N categorical values need their own GROUP BY per column — can't be
+    # flattened into the batched aggregate query above. A wide table can
+    # have hundreds of these. One connection per column paid full connection
+    # setup cost every time (dominated the runtime); one connection for the
+    # whole table risked the pooler killing it mid-run (seen in practice on
+    # a 300+ column table). A connection per small chunk bounds lifetime
+    # while amortizing setup cost across several columns.
+    categorical_cols = [c for c in table.columns if c.data_type not in NUMERIC_TYPES and c.data_type not in DATE_TYPES]
+    for chunk in _chunks(categorical_cols, DISCOVERY_PROFILE_BATCH_SIZE):
+        with engine.connect() as conn:
+            for col in chunk:
                 rows = conn.execute(text(
                     queries.load("profiler_top_values").format(
                         column=col.name, source=source, limit=DISCOVERY_TOP_N_CATEGORICAL
                     )
                 )).all()
-                profile.top_values = [(r[0], r[1]) for r in rows]
-
-            profiles[col.name] = profile
+                profiles[col.name].top_values = [(r[0], r[1]) for r in rows]
 
     log.info(f"profiled table {table.name}: {len(profiles)} columns")
     return profiles

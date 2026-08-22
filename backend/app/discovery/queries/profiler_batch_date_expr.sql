@@ -1,0 +1,1 @@
+MIN({column}) AS c{idx}_min, MAX({column}) AS c{idx}_max

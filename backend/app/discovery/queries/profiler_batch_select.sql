@@ -1,0 +1,1 @@
+SELECT {expressions} FROM {source}

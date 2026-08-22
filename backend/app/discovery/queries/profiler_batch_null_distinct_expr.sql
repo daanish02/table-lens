@@ -1,0 +1,1 @@
+AVG(CASE WHEN {column} IS NULL THEN 1.0 ELSE 0.0 END) AS c{idx}_null, COUNT(DISTINCT {column}) AS c{idx}_distinct

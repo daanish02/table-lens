@@ -18,6 +18,9 @@ DISCOVERY_TOP_N_CATEGORICAL = 10       # top-N values captured per categorical c
 DISCOVERY_FK_OVERLAP_SAMPLE = 1000     # rows sampled for FK-overlap inference
 DISCOVERY_FK_OVERLAP_THRESHOLD = 0.90  # % overlap required to infer a relationship
 DISCOVERY_DESCRIBE_CONCURRENCY = 8     # concurrent column-description LLM calls per table
+DISCOVERY_PROFILE_CONCURRENCY = 6      # concurrent tables profiled at once (DB-bound, not LLM-bound)
+DISCOVERY_PROFILE_BATCH_SIZE = 40      # columns per mega-query — keeps a single SELECT's expression
+                                        # list bounded even for the widest tables (300+ columns)
 
 # ── LLM / embeddings (LangChain — provider is a config swap, never hardcoded) ─
 # Both LLM and embeddings go through OpenRouter's OpenAI-compatible endpoint —
