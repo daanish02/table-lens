@@ -14,6 +14,23 @@ class ChartValidationError(ValueError):
     pass
 
 
+def _strip_js_function_strings(node):
+    """The option is JSON, so it can never carry a real function — if the LLM
+    writes "function(params) {...}" as a formatter string, ECharts has nothing
+    to execute and renders it as literal text. Drop any such key so ECharts
+    falls back to its own default instead of showing raw JS source."""
+    if isinstance(node, dict):
+        for key in list(node.keys()):
+            value = node[key]
+            if isinstance(value, str) and "function(" in value.replace(" ", ""):
+                del node[key]
+            else:
+                _strip_js_function_strings(value)
+    elif isinstance(node, list):
+        for item in node:
+            _strip_js_function_strings(item)
+
+
 def validate_chart_spec(spec: dict) -> dict:
     if not isinstance(spec, dict):
         raise ChartValidationError("chart spec must be a JSON object")
@@ -43,4 +60,5 @@ def validate_chart_spec(spec: dict) -> dict:
         if not isinstance(s, dict) or "type" not in s:
             raise ChartValidationError("each series entry must be an object with a 'type'")
 
+    _strip_js_function_strings(option)
     return spec

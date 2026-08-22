@@ -50,3 +50,30 @@ def test_rejects_empty_series():
 def test_rejects_series_missing_type():
     with pytest.raises(ChartValidationError):
         validate_chart_spec({"title": "x", "chart_type": "bar", "option": {"series": [{"data": [1]}]}})
+
+
+def test_strips_js_function_string_formatter():
+    spec = {
+        "title": "x",
+        "chart_type": "pie",
+        "option": {
+            "tooltip": {"trigger": "item", "formatter": "function(params) { return params.name; }"},
+            "series": [{"type": "pie", "label": {"formatter": "function (p) {return p.value}"}}],
+        },
+    }
+    result = validate_chart_spec(spec)
+    assert "formatter" not in result["option"]["tooltip"]
+    assert "formatter" not in result["option"]["series"][0]["label"]
+
+
+def test_keeps_template_string_formatter():
+    spec = {
+        "title": "x",
+        "chart_type": "pie",
+        "option": {
+            "tooltip": {"trigger": "item", "formatter": "{b}: {c} ({d}%)"},
+            "series": [{"type": "pie"}],
+        },
+    }
+    result = validate_chart_spec(spec)
+    assert result["option"]["tooltip"]["formatter"] == "{b}: {c} ({d}%)"
