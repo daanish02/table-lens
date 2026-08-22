@@ -49,6 +49,21 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--mono);
+  height: 100%;
+}
+
+/* Sticky footer: without this, a short page's footer sits wherever the
+   content ends and any extra viewport height below it is just dead
+   scrollable space — which reads as an oversized blank gap right before
+   the footer once you scroll down to it. */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+body > main {
+  flex: 1 0 auto;
 }
 
 /* Kite/diamond mesh — two mirrored diagonal line sets at a low angle from
