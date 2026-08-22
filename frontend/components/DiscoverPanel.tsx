@@ -91,7 +91,7 @@ export default function DiscoverPanel() {
   return (
     <main style={styles.page}>
       <div style={styles.header}>
-        <span style={styles.wordmark}>table-lens</span>
+        <span style={styles.wordmark}>Table Lens</span>
         <span style={styles.subtitle}>discovery agent — e2e run</span>
       </div>
 

@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "table-lens",
+  title: "Table Lens",
   description: "AI-native conversational BI",
 };
 
