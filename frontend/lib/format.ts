@@ -16,3 +16,9 @@ export function formatCount(n: number | null): string {
   if (n === null) return "—";
   return n.toLocaleString();
 }
+
+export function formatCell(v: unknown): string {
+  if (v === null || v === undefined) return "—";
+  if (typeof v === "boolean") return v ? "true" : "false";
+  return String(v);
+}

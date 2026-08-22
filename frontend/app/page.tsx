@@ -18,13 +18,13 @@ export default function HomePage() {
           </div>
         </Link>
 
-        <div style={{ ...styles.card, ...styles.cardDisabled }}>
+        <Link href="/ask" style={styles.card}>
           <div style={styles.cardTitle}>Ask →</div>
           <div style={styles.cardDesc}>
             Ask questions in plain English, get validated SQL, paginated results, and a
             plain-English summary.
           </div>
-        </div>
+        </Link>
       </div>
     </main>
   );
@@ -63,10 +63,6 @@ const styles: Record<string, React.CSSProperties> = {
     textDecoration: "none",
     color: "var(--text)",
     background: "var(--bg)",
-  },
-  cardDisabled: {
-    opacity: 0.5,
-    cursor: "default",
   },
   cardTitle: {
     fontSize: 14,

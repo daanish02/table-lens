@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "../lib/api-client";
 import { logger } from "../lib/logger";
-import { formatCount } from "../lib/format";
+import { formatCount, formatCell } from "../lib/format";
 import { Skeleton, SkeletonCard } from "./Skeleton";
 
 type BrowseResponse = {
@@ -36,12 +36,6 @@ type ColumnResult = {
 };
 
 const PAGE_SIZE = 50;
-
-function formatCell(v: unknown): string {
-  if (v === null || v === undefined) return "—";
-  if (typeof v === "boolean") return v ? "true" : "false";
-  return String(v);
-}
 
 export default function TableDetail({ table }: { table: string }) {
   const [page, setPage] = useState(1);
