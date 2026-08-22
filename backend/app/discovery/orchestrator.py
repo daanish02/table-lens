@@ -57,7 +57,10 @@ def _describe_and_embed_table(engine, run_id: str, schema: str, table, profiles:
         log.error(f"{table.name}: {failed} of {len(cols)} columns failed to describe, skipping them")
 
     update_step(engine, run_id, f"embedding:{table.name}")
-    embed_and_store(engine, table.name, table_desc, column_descs)
+    # Every column's profile.row_count is the same table-level value —
+    # any one of them works.
+    row_count = next(iter(profiles.values())).row_count if profiles else None
+    embed_and_store(engine, table.name, table_desc, column_descs, profiles=profiles, row_count=row_count)
     # Distinct "done" marker (not just "embedding:X") so the frontend can
     # tell a table's work actually finished, and how many columns it got —
     # "embedding:X" alone doesn't say whether it's still in flight or done.

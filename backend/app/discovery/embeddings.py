@@ -1,3 +1,4 @@
+import json
 from functools import lru_cache
 from langchain_openai import OpenAIEmbeddings
 from sqlalchemy import text, Engine
@@ -45,8 +46,14 @@ def embed_and_store(
     table_name: str,
     table_description: str,
     column_descriptions: dict[str, str],
+    profiles: dict | None = None,
+    row_count: int | None = None,
 ) -> None:
+    """profiles/row_count are optional so existing callers (and tests) that
+    only care about descriptions/embeddings keep working — a data-overview
+    page needs the raw stats too, so the orchestrator passes them through."""
     embedder = _get_embeddings()
+    profiles = profiles or {}
 
     # One batched API call for the table description + every column
     # description, instead of one call per description — cuts what was
@@ -60,13 +67,21 @@ def embed_and_store(
     with engine.connect() as conn:
         conn.execute(
             text(queries.load("embeddings_upsert_table")),
-            {"t": table_name, "d": table_description, "e": str(table_vec)},
+            {
+                "t": table_name, "d": table_description, "e": str(table_vec),
+                "row_count": row_count, "column_count": len(column_descriptions),
+            },
         )
 
         for col_name, col_vec in zip(col_names, col_vecs):
+            profile = profiles.get(col_name)
+            profile_json = json.dumps(profile.model_dump(mode="json")) if profile is not None else None
             conn.execute(
                 text(queries.load("embeddings_upsert_column")),
-                {"t": table_name, "c": col_name, "d": column_descriptions[col_name], "e": str(col_vec)},
+                {
+                    "t": table_name, "c": col_name, "d": column_descriptions[col_name], "e": str(col_vec),
+                    "profile": profile_json,
+                },
             )
         conn.commit()
 

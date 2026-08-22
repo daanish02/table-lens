@@ -3,7 +3,7 @@ from sqlalchemy import text, Engine
 
 from app.config import (
     DISCOVERY_SAMPLE_PCT, DISCOVERY_LARGE_TABLE_ROWS, DISCOVERY_TOP_N_CATEGORICAL,
-    DISCOVERY_PROFILE_BATCH_SIZE,
+    DISCOVERY_PROFILE_BATCH_SIZE, DISCOVERY_HISTOGRAM_MAX_BUCKETS,
 )
 from app.discovery import queries
 from app.discovery.introspect import TableInfo
@@ -27,6 +27,7 @@ class ColumnProfile(BaseModel):
     p50: float | None = None
     p95: float | None = None
     top_values: list[tuple] = Field(default_factory=list)
+    histogram: list[tuple] = Field(default_factory=list)  # numeric only: (bucket_index, count)
 
 
 def _source(schema: str, table: str, row_count: int) -> str:
@@ -115,6 +116,26 @@ def profile_table(engine: Engine, schema: str, table: TableInfo) -> dict:
                     )
                 )).all()
                 profiles[col.name].top_values = [(r[0], r[1]) for r in rows]
+
+    # Histogram buckets for numeric columns — same connection-chunking
+    # rationale as the categorical loop above. Skipped for columns with
+    # <=1 distinct value (nothing to bucket) or an equal min/max (would
+    # divide by zero in width_bucket).
+    numeric_cols = [c for c in table.columns if c.data_type in NUMERIC_TYPES]
+    for chunk in _chunks(numeric_cols, DISCOVERY_PROFILE_BATCH_SIZE):
+        with engine.connect() as conn:
+            for col in chunk:
+                profile = profiles[col.name]
+                if profile.distinct_count <= 1 or profile.min_value is None or profile.max_value == profile.min_value:
+                    continue
+                buckets = min(DISCOVERY_HISTOGRAM_MAX_BUCKETS, profile.distinct_count)
+                rows = conn.execute(text(
+                    queries.load("profiler_histogram").format(
+                        column=col.name, source=source,
+                        min_val=profile.min_value, max_val=profile.max_value, buckets=buckets,
+                    )
+                )).all()
+                profile.histogram = [(r[0], r[1]) for r in rows]
 
     log.info(f"profiled table {table.name}: {len(profiles)} columns")
     return profiles

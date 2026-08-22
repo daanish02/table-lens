@@ -21,6 +21,9 @@ DISCOVERY_DESCRIBE_CONCURRENCY = 8     # concurrent column-description LLM calls
 DISCOVERY_PROFILE_CONCURRENCY = 6      # concurrent tables profiled at once (DB-bound, not LLM-bound)
 DISCOVERY_PROFILE_BATCH_SIZE = 40      # columns per mega-query — keeps a single SELECT's expression
                                         # list bounded even for the widest tables (300+ columns)
+DISCOVERY_HISTOGRAM_MAX_BUCKETS = 20   # numeric-column histograms use min(this, distinct_count)
+                                        # buckets — a column with 5 distinct values gets 5 buckets
+                                        # (exact), not 20 mostly-empty ones
 
 # ── LLM / embeddings (LangChain — provider is a config swap, never hardcoded) ─
 # Both LLM and embeddings go through OpenRouter's OpenAI-compatible endpoint —
