@@ -1,5 +1,77 @@
-import DiscoverPanel from "../components/DiscoverPanel";
+import Link from "next/link";
 
 export default function HomePage() {
-  return <DiscoverPanel />;
+  return (
+    <main style={styles.page}>
+      <h1 style={styles.title}>Table Lens</h1>
+      <p style={styles.lead}>
+        An AI-native conversational BI tool. Ask questions about your data in plain English —
+        an agent discovers your schema, understands what it means, and answers by querying it directly.
+      </p>
+
+      <div style={styles.sections}>
+        <Link href="/data" style={styles.card}>
+          <div style={styles.cardTitle}>Data →</div>
+          <div style={styles.cardDesc}>
+            Browse discovered tables and columns, run schema discovery, inspect stats and
+            distributions, view raw rows.
+          </div>
+        </Link>
+
+        <div style={{ ...styles.card, ...styles.cardDisabled }}>
+          <div style={styles.cardTitle}>Ask →</div>
+          <div style={styles.cardDesc}>Query your data in natural language. Coming soon.</div>
+        </div>
+      </div>
+    </main>
+  );
 }
+
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    maxWidth: 720,
+    margin: "0 auto",
+    padding: "64px 24px",
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 600,
+    letterSpacing: "-0.02em",
+    margin: 0,
+  },
+  lead: {
+    fontSize: 14,
+    color: "var(--text-dim)",
+    lineHeight: 1.6,
+    marginTop: 16,
+    maxWidth: 520,
+  },
+  sections: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+    marginTop: 40,
+  },
+  card: {
+    display: "block",
+    border: "1px solid var(--border)",
+    borderRadius: 2,
+    padding: "18px 20px",
+    textDecoration: "none",
+    color: "var(--text)",
+  },
+  cardDisabled: {
+    opacity: 0.5,
+    cursor: "default",
+  },
+  cardTitle: {
+    fontSize: 14,
+    color: "var(--accent)",
+    marginBottom: 6,
+  },
+  cardDesc: {
+    fontSize: 12,
+    color: "var(--text-dim)",
+    lineHeight: 1.5,
+  },
+};

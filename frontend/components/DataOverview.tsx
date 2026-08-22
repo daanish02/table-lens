@@ -218,7 +218,6 @@ export default function DataOverview() {
   return (
     <main style={styles.page}>
       <div style={styles.header}>
-        <span style={styles.wordmark}>Table Lens</span>
         <span style={styles.subtitle}>data overview</span>
       </div>
 
