@@ -1,28 +1,9 @@
-/* Light is the default palette (bare :root) — this app is shared with
-   people who aren't necessarily comfortable in a dark-mode terminal
-   aesthetic. Dark is an explicit opt-in via [data-theme="dark"], toggled
-   by ThemeToggle.tsx and persisted to localStorage; see the inline script
-   in app/layout.tsx that applies a saved "dark" preference before first
-   paint, so there's no flash of the wrong theme on load. */
+/* Dark is the default palette (bare :root). Light is an explicit opt-in via
+   [data-theme="light"], toggled by ThemeToggle.tsx and persisted to
+   localStorage; see the inline script in app/layout.tsx that applies a
+   saved "light" preference before first paint, so there's no flash of the
+   wrong theme on load. */
 :root {
-  --bg: #e9e9ec;
-  --surface: #f7f7f9;
-  --surface-hover: #eeeef1;
-  --border: #d4d4d9;
-  --border-strong: #b6b6bd;
-  --text: #18181b;
-  --text-dim: #52525b;
-  --text-faint: #71717a;
-  --accent: #0d9488;
-  --accent-dim: rgba(13, 148, 136, 0.10);
-  --error: #c53d42;
-  --error-dim: rgba(197, 61, 66, 0.08);
-  --shimmer: rgba(0, 0, 0, 0.05);
-  --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
-  --sans: var(--sans-loaded), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-
-:root[data-theme="dark"] {
   --bg: #0a0a0b;
   --surface: #111113;
   --surface-hover: #16161a;
@@ -36,6 +17,24 @@
   --error: #e5484d;
   --error-dim: rgba(229, 72, 77, 0.12);
   --shimmer: rgba(255, 255, 255, 0.07);
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  --sans: var(--sans-loaded), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+:root[data-theme="light"] {
+  --bg: #e9e9ec;
+  --surface: #f7f7f9;
+  --surface-hover: #eeeef1;
+  --border: #d4d4d9;
+  --border-strong: #b6b6bd;
+  --text: #18181b;
+  --text-dim: #52525b;
+  --text-faint: #71717a;
+  --accent: #0d9488;
+  --accent-dim: rgba(13, 148, 136, 0.10);
+  --error: #c53d42;
+  --error-dim: rgba(197, 61, 66, 0.08);
+  --shimmer: rgba(0, 0, 0, 0.05);
 }
 
 * {

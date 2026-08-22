@@ -10,14 +10,14 @@ export const metadata = {
   description: "AI-native conversational BI",
 };
 
-// Applies a saved "dark" preference to <html> before first paint — light
+// Applies a saved "light" preference to <html> before first paint — dark
 // is the default (bare :root in globals.css), so nothing needs to run for
-// that case. Without this, a returning dark-mode visitor would see a
-// flash of the light theme before client JS (ThemeToggle) catches up.
+// that case. Without this, a returning light-mode visitor would see a
+// flash of the dark theme before client JS (ThemeToggle) catches up.
 const NO_FLASH_THEME_SCRIPT = `
 try {
-  if (localStorage.getItem('table-lens-theme') === 'dark') {
-    document.documentElement.setAttribute('data-theme', 'dark');
+  if (localStorage.getItem('table-lens-theme') === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
   }
 } catch (e) {}
 `;

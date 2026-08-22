@@ -250,13 +250,13 @@ function formatAxisNumber(n: number): string {
 }
 
 function useThemeColors() {
-  const [colors, setColors] = useState({ accent: "#0d9488", text: "#52525b", grid: "#d4d4d9" });
+  const [colors, setColors] = useState({ accent: "#35c9be", text: "#8b8b93", grid: "#26262b" });
   useEffect(() => {
     const style = getComputedStyle(document.documentElement);
     setColors({
-      accent: style.getPropertyValue("--accent").trim() || "#0d9488",
-      text: style.getPropertyValue("--text-dim").trim() || "#52525b",
-      grid: style.getPropertyValue("--border").trim() || "#d4d4d9",
+      accent: style.getPropertyValue("--accent").trim() || "#35c9be",
+      text: style.getPropertyValue("--text-dim").trim() || "#8b8b93",
+      grid: style.getPropertyValue("--border").trim() || "#26262b",
     });
   }, []);
   return colors;

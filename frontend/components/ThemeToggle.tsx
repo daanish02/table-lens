@@ -6,7 +6,7 @@ import { getCurrentTheme, type Theme } from "../lib/theme";
 const STORAGE_KEY = "table-lens-theme";
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
     setTheme(getCurrentTheme());
@@ -15,8 +15,8 @@ export default function ThemeToggle() {
   function toggle() {
     const next = theme === "light" ? "dark" : "light";
     setTheme(next);
-    if (next === "dark") {
-      document.documentElement.setAttribute("data-theme", "dark");
+    if (next === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
     } else {
       document.documentElement.removeAttribute("data-theme");
     }
