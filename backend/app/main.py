@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 
@@ -12,6 +13,17 @@ log = get_logger(__name__)
 app = FastAPI(title="Table Lens")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.exception_handler(Exception)
+async def log_unhandled_exception(request: Request, exc: Exception):
+    # FastAPI's default behavior only prints unhandled exceptions to
+    # uvicorn's own stderr, which this app's rotating file logger never
+    # sees and which a restarted process loses entirely — making this class
+    # of failure undiagnosable after the fact. Route it through our logger
+    # too before falling back to the same 500 response FastAPI would give.
+    log.exception(f"unhandled exception on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://localhost:3001"],
