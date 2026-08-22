@@ -13,12 +13,16 @@ log = get_logger(__name__)
 def _get_llm():
     # OpenRouter exposes an OpenAI-compatible endpoint — ChatOpenAI works
     # unmodified against it via base_url. Model swap = change LLM_MODEL only.
+    # timeout=60: without it a single stuck call can hang for the SDK's own
+    # (effectively unbounded) default — bad anywhere, worse here since a
+    # discovery run makes hundreds of these calls unattended.
     return ChatOpenAI(
         model=LLM_MODEL,
         api_key=OPENROUTER_API_KEY,
         base_url=OPENROUTER_BASE_URL,
         max_retries=LLM_MAX_RETRIES,
         max_tokens=LLM_MAX_TOKENS,
+        timeout=60,
         temperature=0,
     )
 

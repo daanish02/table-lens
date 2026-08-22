@@ -6,6 +6,7 @@ before being returned; on repeated failure, falls back to a plain
 table rather than shipping something broken to the frontend."""
 
 import json
+import uuid
 from app.visualize.llm import get_llm
 from app.visualize import prompts
 from app.visualize.chart_guard import validate_chart_spec, ChartValidationError
@@ -30,6 +31,10 @@ def _extract_json(text: str) -> dict:
 
 
 def generate_chart(question: str, sql: str, headline: str, columns: list[str], rows: list[dict], theme: str = "dark") -> dict:
+    # Plain log lines have no request identity, so concurrent chart builds
+    # (e.g. several dashboard cards queued close together) interleave into
+    # an unreadable mess — a short id per call lets you grep one out.
+    call_id = uuid.uuid4().hex[:8]
     palette = get_palette(theme)
     prompt = prompts.load("chart").format(
         question=question,
@@ -53,16 +58,16 @@ def generate_chart(question: str, sql: str, headline: str, columns: list[str], r
             f"{prompt}\n\nYour previous response failed validation: {last_error}\n"
             "Return ONLY corrected JSON, the exact same shape as instructed above."
         )
-        log.info(f"visualize agent attempt {attempt}/{MAX_ATTEMPTS}")
+        log.info(f"[{call_id}] visualize agent attempt {attempt}/{MAX_ATTEMPTS}")
         response = llm.invoke(full_prompt)
         try:
             spec = _extract_json(response.content)
             spec = validate_chart_spec(spec)
-            log.info(f"chart generated: {spec['chart_type']} — {spec['title']!r}")
+            log.info(f"[{call_id}] chart generated: {spec['chart_type']} — {spec['title']!r}")
             return spec
         except (json.JSONDecodeError, ChartValidationError) as e:
             last_error = str(e)
-            log.warning(f"chart generation attempt {attempt} failed: {e}")
+            log.warning(f"[{call_id}] chart generation attempt {attempt} failed: {e}")
 
-    log.error(f"chart generation failed after {MAX_ATTEMPTS} attempts: {last_error}")
+    log.error(f"[{call_id}] chart generation failed after {MAX_ATTEMPTS} attempts: {last_error}")
     return {"title": question, "chart_type": "table", "option": None, "error": last_error}
