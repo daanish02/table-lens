@@ -212,16 +212,25 @@ function ColumnCard({ col }: { col: ColumnResult }) {
       )}
 
       {profile && (
-        <div style={styles.columnCardStats}>
-          <span>null: {(profile.null_rate * 100).toFixed(1)}%</span>
-          <span>distinct: {formatCount(profile.distinct_count)}</span>
-          {profile.mean_value != null && <span>mean: {profile.mean_value.toFixed(2)}</span>}
-          {profile.p50 != null && <span>p50: {profile.p50}</span>}
-          {profile.p95 != null && <span>p95: {profile.p95}</span>}
-          {profile.min_value != null && <span>min: {String(profile.min_value)}</span>}
-          {profile.max_value != null && <span>max: {String(profile.max_value)}</span>}
+        <div style={styles.statGrid}>
+          <StatBlock label="null" value={`${(profile.null_rate * 100).toFixed(1)}%`} />
+          <StatBlock label="distinct" value={formatCount(profile.distinct_count)} />
+          {profile.mean_value != null && <StatBlock label="mean" value={profile.mean_value.toFixed(2)} />}
+          {profile.p50 != null && <StatBlock label="p50" value={String(profile.p50)} />}
+          {profile.p95 != null && <StatBlock label="p95" value={String(profile.p95)} />}
+          {profile.min_value != null && <StatBlock label="min" value={String(profile.min_value)} />}
+          {profile.max_value != null && <StatBlock label="max" value={String(profile.max_value)} />}
         </div>
       )}
+    </div>
+  );
+}
+
+function StatBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={styles.statBlock}>
+      <div style={styles.statBlockValue}>{value}</div>
+      <div style={styles.statBlockLabel}>{label}</div>
     </div>
   );
 }
@@ -394,13 +403,29 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 10,
     lineHeight: 1.55,
   },
-  columnCardStats: {
+  statGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))",
+    gap: "10px 8px",
+    marginTop: 12,
+    paddingTop: 10,
+    borderTop: "1px solid var(--border)",
+  },
+  statBlock: {
     display: "flex",
-    flexWrap: "wrap",
-    gap: 8,
+    flexDirection: "column",
+    gap: 2,
+  },
+  statBlockValue: {
+    fontFamily: "var(--mono)",
+    fontSize: 13,
+    color: "var(--text)",
+  },
+  statBlockLabel: {
     fontSize: 10,
-    color: "var(--text-dim)",
-    marginTop: 8,
+    letterSpacing: "0.05em",
+    textTransform: "uppercase",
+    color: "var(--text-faint)",
   },
   barLabels: {
     display: "flex",
