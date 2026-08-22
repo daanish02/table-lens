@@ -16,7 +16,7 @@ def test_embed_and_store_writes_table_and_column_rows():
     from sqlalchemy import text
 
     engine = get_engine()
-    with patch("app.discovery.embeddings._get_embeddings") as mock_get_emb:
+    with patch("app.discovery.embeddings.get_embeddings") as mock_get_emb:
         mock_emb = MagicMock()
         # embed_and_store batches table + column descriptions into one
         # embed_documents() call — return one vector per input text.

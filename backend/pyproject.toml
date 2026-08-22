@@ -10,6 +10,7 @@ dependencies = [
     "pgvector>=0.3.0",
     "langchain>=0.3.0",
     "langchain-openai>=0.2.0",
+    "sqlglot>=25.0.0",
     "slowapi>=0.1.9",
     "pydantic>=2.9.0",
     "pydantic-settings>=2.6.0",

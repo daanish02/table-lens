@@ -11,7 +11,7 @@ log = get_logger(__name__)
 
 
 @lru_cache
-def _get_embeddings():
+def get_embeddings():
     # OpenRouter also exposes an embeddings route via its OpenAI-compatible
     # endpoint — same key/base_url as the LLM, no separate provider needed.
     return OpenAIEmbeddings(
@@ -60,7 +60,7 @@ def embed_and_store(
     per-column caching, column_descriptions may only cover the columns that
     changed this run, while column_count needs to reflect the table's true
     total column count."""
-    embedder = _get_embeddings()
+    embedder = get_embeddings()
     profiles = profiles or {}
     content_hashes = content_hashes or {}
     if column_count is None:
