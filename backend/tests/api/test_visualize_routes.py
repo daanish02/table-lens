@@ -28,6 +28,7 @@ def test_post_visualize_returns_chart_spec():
         "APPROVED is the largest bucket.",
         ["claim_status", "claim_count"],
         [{"claim_status": "APPROVED", "claim_count": 8912}],
+        theme="dark",
     )
 
 
@@ -38,6 +39,15 @@ def test_post_visualize_defaults_missing_headline_to_empty_string():
         })
     args, _ = mock_gen.call_args
     assert args[2] == ""
+
+
+def test_post_visualize_passes_theme():
+    with patch("app.api.routes.visualize.generate_chart", return_value={}) as mock_gen:
+        client.post("/api/visualize", json={
+            "question": "q", "sql": "SELECT 1", "columns": ["a"], "rows": [{"a": 1}], "theme": "light",
+        })
+    _, kwargs = mock_gen.call_args
+    assert kwargs["theme"] == "light"
 
 
 def test_post_visualize_requires_fields():

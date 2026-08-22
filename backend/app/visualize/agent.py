@@ -9,6 +9,7 @@ import json
 from app.query.llm import get_llm
 from app.visualize import prompts
 from app.visualize.chart_guard import validate_chart_spec, ChartValidationError
+from app.visualize.theme import get_palette
 from app.utils.logger import get_logger
 
 __all__ = ["generate_chart"]
@@ -28,7 +29,8 @@ def _extract_json(text: str) -> dict:
     return json.loads(text)
 
 
-def generate_chart(question: str, sql: str, headline: str, columns: list[str], rows: list[dict]) -> dict:
+def generate_chart(question: str, sql: str, headline: str, columns: list[str], rows: list[dict], theme: str = "dark") -> dict:
+    palette = get_palette(theme)
     prompt = prompts.load("chart").format(
         question=question,
         sql=sql,
@@ -36,6 +38,12 @@ def generate_chart(question: str, sql: str, headline: str, columns: list[str], r
         columns=", ".join(columns),
         row_count=len(rows),
         rows=json.dumps(rows, default=str),
+        theme=theme,
+        text_color=palette["text_color"],
+        dim_text_color=palette["dim_text_color"],
+        grid_color=palette["grid_color"],
+        accent_color=palette["accent_color"],
+        series_palette=json.dumps(palette["series_palette"]),
     )
     llm = get_llm()
 

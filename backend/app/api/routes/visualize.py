@@ -22,9 +22,10 @@ class VisualizeRequest(BaseModel):
     headline: str | None = None
     columns: list[str]
     rows: list[dict[str, Any]]
+    theme: str = "dark"
 
 
 @router.post("")
 @limiter.limit("20/minute")
 def visualize(request: Request, body: VisualizeRequest):
-    return generate_chart(body.question, body.sql, body.headline or "", body.columns, body.rows)
+    return generate_chart(body.question, body.sql, body.headline or "", body.columns, body.rows, theme=body.theme)

@@ -7,6 +7,7 @@ import type { EChartsOption } from "echarts";
 import { apiClient } from "../lib/api-client";
 import { logger } from "../lib/logger";
 import { formatCount } from "../lib/format";
+import { getCurrentTheme } from "../lib/theme";
 import EChart from "./EChart";
 
 type Mode = "single" | "dashboard";
@@ -175,6 +176,7 @@ export default function VisualizeView() {
         headline: result.headline,
         columns: result.columns,
         rows: result.rows,
+        theme: getCurrentTheme(),
       });
       setCharts((prev) => prev.map((c) => (c.localId === localId ? { ...c, spec } : c)));
       if (mode === "dashboard") {

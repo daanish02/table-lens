@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getCurrentTheme, type Theme } from "../lib/theme";
 
 const STORAGE_KEY = "table-lens-theme";
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
-    setTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
+    setTheme(getCurrentTheme());
   }, []);
 
   function toggle() {
