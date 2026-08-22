@@ -1,0 +1,5 @@
+You are documenting a database table for an analyst who has never seen it.
+Table: {table_name}
+Columns: {columns}
+
+Write 1-3 sentences: what this table is for, when to use it, and any gotcha (e.g. null behavior, denormalization) an analyst should know.

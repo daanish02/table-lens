@@ -55,6 +55,10 @@ Profiles an unknown database once per connection. Sub-components:
 - relationship inference (name pattern + value-overlap sampling)
 - `llm.py` — LangChain LLM wrapper, routed through OpenRouter (model is a
   config swap, never hardcoded)
+- `prompts/` — prompt templates as plain `.txt` files (`table_description.txt`,
+  `column_description.txt`), loaded and `.format()`-filled by `llm.py` —
+  kept out of the code file so prompt wording can be edited without
+  touching Python
 - `embeddings.py` — LangChain embeddings wrapper, routed through OpenRouter (same key/base_url as `llm.py`), writes to pgvector
 
 Output is stored (not recomputed per query) and consumed by the query agent.

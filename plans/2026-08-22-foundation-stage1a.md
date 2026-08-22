@@ -1444,13 +1444,48 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'app.discovery.llm'`
 - [ ] **Step 3: Write minimal implementation**
 
 ```python
+# backend/app/discovery/prompts/table_description.txt
+# You are documenting a database table for an analyst who has never seen it.
+# Table: {table_name}
+# Columns: {columns}
+#
+# Write 1-3 sentences: what this table is for, when to use it, and any gotcha (e.g. null behavior, denormalization) an analyst should know.
+```
+
+```python
+# backend/app/discovery/prompts/column_description.txt
+# You are documenting a database column for an analyst who has never seen it.
+# Table: {table_name}, Column: {column_name} ({data_type})
+# Stats: {stats}
+#
+# Write 1 sentence: what this column represents, when to use it, and any gotcha (nulls, encoding) an analyst should know.
+```
+
+```python
+# backend/app/discovery/prompts/__init__.py
+from functools import lru_cache
+from pathlib import Path
+
+_PROMPTS_DIR = Path(__file__).parent
+
+
+@lru_cache
+def load(name: str) -> str:
+    """Load a prompt template by filename (without extension). Templates
+    use plain str.format() placeholders. Kept as .txt files, not inline
+    strings, so prompt wording can be edited without touching Python."""
+    return (_PROMPTS_DIR / f"{name}.txt").read_text()
+```
+
+```python
 # backend/app/discovery/llm.py
 from functools import lru_cache
 from langchain_openai import ChatOpenAI
 
 from app.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, LLM_MODEL, LLM_MAX_RETRIES
+from app.discovery import prompts
 from app.discovery.introspect import TableInfo, ColumnInfo
-from app.logging.logger import get_logger
+from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -1473,14 +1508,11 @@ def describe_table(table: TableInfo, profiles: dict) -> str:
         f"{c.name} ({c.data_type}, null_rate={profiles[c.name].null_rate:.2f})"
         for c in table.columns if c.name in profiles
     )
-    prompt = (
-        f"You are documenting a database table for an analyst who has never seen it.\n"
-        f"Table: {table.name}\n"
-        f"Columns: {col_summary}\n\n"
-        f"Write 1-3 sentences: what this table is for, when to use it, and any "
-        f"gotcha (e.g. null behavior, denormalization) an analyst should know."
+    prompt = prompts.load("table_description").format(
+        table_name=table.name,
+        columns=col_summary,
     )
-    log.info("llm.describe_table", table=table.name)
+    log.info(f"describing table: {table.name}")
     response = _get_llm().invoke(prompt)
     return response.content
 
@@ -1492,14 +1524,13 @@ def describe_column(table_name: str, column: ColumnInfo, profile) -> str:
     if profile.top_values:
         stats += f", top_values={profile.top_values[:5]}"
 
-    prompt = (
-        f"You are documenting a database column for an analyst who has never seen it.\n"
-        f"Table: {table_name}, Column: {column.name} ({column.data_type})\n"
-        f"Stats: {stats}\n\n"
-        f"Write 1 sentence: what this column represents, when to use it, and any "
-        f"gotcha (nulls, encoding) an analyst should know."
+    prompt = prompts.load("column_description").format(
+        table_name=table_name,
+        column_name=column.name,
+        data_type=column.data_type,
+        stats=stats,
     )
-    log.info("llm.describe_column", table=table_name, column=column.name)
+    log.info(f"describing column: {table_name}.{column.name}")
     response = _get_llm().invoke(prompt)
     return response.content
 ```
