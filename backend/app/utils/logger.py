@@ -17,8 +17,8 @@ _formatter = logging.Formatter(_FORMAT)
 _stream_handler = logging.StreamHandler(sys.stdout)
 _stream_handler.setFormatter(_formatter)
 
-_file_handler = logging.handlers.RotatingFileHandler(
-    LOG_DIR / "app.log", maxBytes=10_000_000, backupCount=5
+_file_handler = logging.handlers.TimedRotatingFileHandler(
+    LOG_DIR / "app.log", when="midnight", interval=1, backupCount=3
 )
 _file_handler.setFormatter(_formatter)
 
