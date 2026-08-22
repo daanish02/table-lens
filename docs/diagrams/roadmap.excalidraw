@@ -1,0 +1,28 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "table-lens",
+  "elements": [
+    {"type":"text","id":"title4","x":500,"y":15,"width":200,"height":30,"text":"Roadmap","fontSize":24,"strokeColor":"#1e1e1e"},
+    {"type":"rectangle","id":"s0","x":40,"y":300,"width":220,"height":110,"roundness":{"type":3},"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#22c55e"},
+    {"type":"text","id":"s0l","x":60,"y":320,"width":180,"height":70,"text":"Stage 0\nSeed Data Generator\n(built)","fontSize":18,"containerId":"s0"},
+    {"type":"arrow","id":"ra1","x":260,"y":355,"width":90,"height":0,"points":[[0,0],[90,0]],"strokeColor":"#1e1e1e","strokeWidth":2,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"s1a","x":350,"y":300,"width":220,"height":110,"roundness":{"type":3},"backgroundColor":"#fff3bf","fillStyle":"solid","strokeColor":"#f59e0b"},
+    {"type":"text","id":"s1al","x":370,"y":320,"width":180,"height":70,"text":"Stage 1a\nDiscovery Agent\n(planned)","fontSize":18,"containerId":"s1a"},
+    {"type":"arrow","id":"ra2","x":570,"y":355,"width":90,"height":0,"points":[[0,0],[90,0]],"strokeColor":"#1e1e1e","strokeWidth":2,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"s1b","x":660,"y":300,"width":220,"height":110,"roundness":{"type":3},"backgroundColor":"#fff3bf","fillStyle":"solid","strokeColor":"#f59e0b"},
+    {"type":"text","id":"s1bl","x":680,"y":320,"width":180,"height":70,"text":"Stage 1b\nQuery Agent\n(planned)","fontSize":18,"containerId":"s1b"},
+    {"type":"arrow","id":"ra3","x":880,"y":355,"width":90,"height":0,"points":[[0,0],[90,0]],"strokeColor":"#1e1e1e","strokeWidth":2,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"s2","x":970,"y":300,"width":220,"height":110,"roundness":{"type":3},"backgroundColor":"#fff3bf","fillStyle":"solid","strokeColor":"#f59e0b"},
+    {"type":"text","id":"s2l","x":990,"y":320,"width":180,"height":70,"text":"Stage 2\nChat + Chart UI\n(planned)","fontSize":18,"containerId":"s2"},
+    {"type":"arrow","id":"ra4","x":1190,"y":355,"width":90,"height":0,"points":[[0,0],[90,0]],"strokeColor":"#1e1e1e","strokeWidth":2,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"s3","x":1280,"y":300,"width":220,"height":110,"roundness":{"type":3},"backgroundColor":"#fff3bf","fillStyle":"solid","strokeColor":"#f59e0b"},
+    {"type":"text","id":"s3l","x":1300,"y":320,"width":180,"height":70,"text":"Stage 3\nDashboard Builder\n(planned)","fontSize":18,"containerId":"s3"},
+    {"type":"arrow","id":"ra5","x":1390,"y":410,"width":0,"height":90,"points":[[0,0],[0,90]],"strokeColor":"#757575","strokeWidth":2,"strokeStyle":"dashed","endArrowhead":"arrow"},
+    {"type":"rectangle","id":"s4","x":1280,"y":520,"width":220,"height":100,"roundness":{"type":3},"backgroundColor":"#e9ecef","fillStyle":"solid","strokeColor":"#757575"},
+    {"type":"text","id":"s4l","x":1290,"y":535,"width":200,"height":70,"text":"Stage 4\nRBAC / Multi-tenant\n(future, not scheduled)","fontSize":16,"containerId":"s4"},
+    {"type":"text","id":"legend","x":40,"y":480,"width":540,"height":20,"text":"Green = built    Amber = planned    Gray = future","fontSize":16,"strokeColor":"#757575"}
+  ],
+  "appState": {"viewBackgroundColor": "#ffffff"},
+  "files": {}
+}
