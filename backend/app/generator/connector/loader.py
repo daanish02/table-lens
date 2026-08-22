@@ -15,11 +15,16 @@ Setup:
 """
 
 import argparse
+import json
+import re
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pandas as pd
+import psycopg
 from rich.console import Console
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
@@ -32,10 +37,18 @@ SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL") or ""
 
 # Import after env load
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import OUTPUT_DIR, BATCH_SIZE, DEMO_SCHEMA
+from config import OUTPUT_DIR, BATCH_SIZE, DEMO_SCHEMA, ROW_COUNTS
 from schema.ddl import get_ddl, all_table_names
 
 console = Console()
+
+MAX_WORKERS = 3  # concurrent table loads. Supabase's session-mode pooler caps
+# at 15 total connections; each worker holds one raw psycopg connection plus
+# borrows from the SQLAlchemy pool, and killed runs can leave stale
+# connections lingering — keep this low to leave headroom.
+_thread_local = threading.local()
+_all_raw_conns = []          # every raw connection ever opened, for explicit cleanup
+_all_raw_conns_lock = threading.Lock()
 
 LOAD_ORDER = [
     "financial_periods", "products", "repair_shops", "employers", "agents",
@@ -54,6 +67,23 @@ LOAD_ORDER = [
 ]
 
 
+def _normalize(url: str) -> str:
+    """Supabase issues postgres:// URLs; SQLAlchemy + psycopg3 need the
+    explicit postgresql+psycopg:// scheme."""
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url[len("postgresql://"):]
+    return url
+
+
+def _psycopg_dsn(url: str) -> str:
+    """psycopg.connect() wants a bare postgresql:// DSN, not SQLAlchemy's
+    postgresql+psycopg:// driver-qualified form."""
+    normalized = _normalize(url)
+    return "postgresql://" + normalized[len("postgresql+psycopg://"):]
+
+
 def get_engine():
     url = SUPABASE_DB_URL
     if not url:
@@ -61,18 +91,89 @@ def get_engine():
         console.print("  Set it in config.py or as an environment variable:")
         console.print("  [cyan]export SUPABASE_DB_URL=postgres://postgres:PASSWORD@db.XXX.supabase.co:5432/postgres[/cyan]")
         sys.exit(1)
-    return create_engine(url, pool_pre_ping=True)
+    # pool_size covers MAX_WORKERS concurrent table loads each needing a connection
+    return create_engine(_normalize(url), pool_pre_ping=True, pool_size=MAX_WORKERS, max_overflow=1)
+
+
+def _get_worker_raw_conn():
+    """One psycopg connection per worker thread, reused across every table
+    that thread processes — avoids a fresh TCP+TLS handshake to the pooler
+    per table."""
+    if not hasattr(_thread_local, "raw_conn") or _thread_local.raw_conn.closed:
+        _thread_local.raw_conn = psycopg.connect(_psycopg_dsn(SUPABASE_DB_URL))
+        with _all_raw_conns_lock:
+            _all_raw_conns.append(_thread_local.raw_conn)
+    return _thread_local.raw_conn
+
+
+def close_all_connections(engine) -> None:
+    """Explicitly close every connection this run opened — raw psycopg
+    connections held by worker threads, and the SQLAlchemy pool — instead of
+    leaving them for garbage collection. Matters here specifically because
+    we're operating against a hard-capped connection pool (Supabase
+    session-mode pooler, 15 max) and killed/crashed runs already left stale
+    sessions occupying slots."""
+    with _all_raw_conns_lock:
+        for conn in _all_raw_conns:
+            if not conn.closed:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+        _all_raw_conns.clear()
+    if engine is not None:
+        engine.dispose()
 
 
 def create_table_if_not_exists(engine, table_name: str, schema: str) -> None:
     ddl = get_ddl(table_name, schema=schema)
-    # Strip the ext_col_start placeholder — actual wide cols were added dynamically
+    # Strip the ext_col_start placeholder — actual wide cols were added dynamically.
+    # Removing it can leave a dangling comma before the closing paren (invalid
+    # SQL) — strip that too, regardless of what comment/blank lines sit between.
     ddl_clean = ddl.replace("ext_col_start       INT DEFAULT 0  -- marker; actual ext cols appended by generator", "")
     ddl_clean = ddl_clean.replace("ext_col_start       INT DEFAULT 0", "")
+    ddl_clean = re.sub(r",(\s*(?:--[^\n]*\n\s*)*\);)", r"\1", ddl_clean)
     with engine.connect() as conn:
         conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
         conn.execute(text(ddl_clean))
         conn.commit()
+
+
+def _pg_type_for(dtype) -> str:
+    if pd.api.types.is_datetime64_any_dtype(dtype):
+        return "TIMESTAMP"
+    if pd.api.types.is_bool_dtype(dtype):
+        return "BOOLEAN"
+    if pd.api.types.is_integer_dtype(dtype):
+        return "BIGINT"
+    if pd.api.types.is_float_dtype(dtype):
+        return "NUMERIC"
+    return "TEXT"
+
+
+def ensure_extra_columns(engine, table_name: str, schema: str, df: pd.DataFrame) -> None:
+    """Wide tables' dynamically-generated extra columns (cust_score_001, etc.)
+    aren't in the static DDL — only a placeholder marker is, and that gets
+    stripped. Add whatever columns the DataFrame has that the table doesn't,
+    inferring type from pandas dtype. No-op for narrow tables."""
+    with engine.connect() as conn:
+        existing_cols = set(conn.execute(text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = :schema AND table_name = :table"
+        ), {"schema": schema, "table": table_name}).scalars().all())
+
+        missing = [c for c in df.columns if c not in existing_cols]
+        if missing:
+            # One ALTER TABLE with all ADD COLUMN clauses, not one statement
+            # per column — wide tables can have 200-300 extra columns, and
+            # that many round-trips risks tripping the pooler's per-statement
+            # timeout under concurrent load.
+            clauses = ", ".join(
+                f'ADD COLUMN IF NOT EXISTS "{col}" {_pg_type_for(df[col].dtype)}'
+                for col in missing
+            )
+            conn.execute(text(f"ALTER TABLE {schema}.{table_name} {clauses}"))
+            conn.commit()
 
 
 def load_table(engine, table_name: str, dry_run: bool = False, schema: str = DEMO_SCHEMA) -> bool:
@@ -85,6 +186,31 @@ def load_table(engine, table_name: str, dry_run: bool = False, schema: str = DEM
     df = pd.read_parquet(parquet_path)
     total_rows = len(df)
 
+    # Nullable integer columns (optional FKs, etc.) come back as float64 in
+    # pandas — NaN forces the whole column to float — so "150" renders as
+    # "150.0", which Postgres's strict COPY text format rejects for an
+    # INTEGER column. Any float column whose non-null values are all whole
+    # numbers gets promoted to pandas' nullable Int64 (preserves NaN as NA,
+    # prints clean integers). A genuinely fractional numeric column never
+    # matches the all-integral check, so this is a no-op for real decimals.
+    for col in df.columns:
+        if pd.api.types.is_float_dtype(df[col]):
+            non_null = df[col].dropna()
+            if len(non_null) and (non_null % 1 == 0).all():
+                df[col] = df[col].astype("Int64")
+
+    # Some date/timestamp-named columns come back as plain strings (pandas'
+    # dedicated string dtype) — coerce to real datetimes. Columns holding
+    # dict/list values (JSONB in the DDL) need JSON-serializing — COPY's
+    # text-format wire protocol needs valid JSON text, not a Python repr.
+    for col in df.columns:
+        if col.endswith(("_at", "_date")):
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+        else:
+            sample = df[col].dropna()
+            if len(sample) and isinstance(sample.iloc[0], (dict, list)):
+                df[col] = df[col].apply(lambda v: json.dumps(v) if isinstance(v, (dict, list)) else v)
+
     if dry_run:
         console.print(f"  [dim]DRY  {table_name:<40} {total_rows:>10,} rows  [{parquet_path.stat().st_size / 1024 / 1024:.1f} MB][/dim]")
         return True
@@ -95,29 +221,38 @@ def load_table(engine, table_name: str, dry_run: bool = False, schema: str = DEM
     try:
         # Create table schema
         create_table_if_not_exists(engine, table_name, schema)
+        ensure_extra_columns(engine, table_name, schema, df)
 
-        # Check if already loaded
+        # Check if already loaded. A prior interrupted run can leave a table
+        # partially loaded — nonzero but short of target — which must NOT be
+        # treated as done, or it's silently stuck incomplete forever.
+        target = ROW_COUNTS.get(table_name, total_rows)
         with engine.connect() as conn:
-            count_result = conn.execute(text(f"SELECT COUNT(*) FROM {schema}.{table_name}"))
-            existing = count_result.scalar()
+            existing = conn.execute(text(f"SELECT COUNT(*) FROM {schema}.{table_name}")).scalar()
 
-        if existing and existing > 0:
+        if existing and existing >= target:
             console.print(f" [yellow]already has {existing:,} rows — skipping[/yellow]")
             return True
 
-        # Load in batches
-        n_batches = (total_rows + BATCH_SIZE - 1) // BATCH_SIZE
-        for i in range(n_batches):
-            chunk = df.iloc[i * BATCH_SIZE:(i + 1) * BATCH_SIZE]
-            chunk.to_sql(
-                table_name,
-                engine,
-                schema=schema,
-                if_exists="append",
-                index=False,
-                method="multi",
-                chunksize=500,
-            )
+        if existing and 0 < existing < target:
+            console.print(f" [yellow]partial ({existing:,}/{target:,}) — truncating and reloading[/yellow]")
+            with engine.connect() as conn:
+                conn.execute(text(f"TRUNCATE TABLE {schema}.{table_name}"))
+                conn.commit()
+
+        # Stream via COPY rather than parameterized INSERT — no 65535
+        # bind-parameter ceiling (irrelevant for wide 200+-column tables),
+        # and dramatically faster over a network connection. Connection is
+        # reused across this worker's tables, not reopened per table.
+        df_clean = df.astype(object).where(pd.notnull(df), None)
+        cols = list(df_clean.columns)
+        col_list = ", ".join(f'"{c}"' for c in cols)
+        raw_conn = _get_worker_raw_conn()
+        with raw_conn.cursor() as cur:
+            with cur.copy(f"COPY {schema}.{table_name} ({col_list}) FROM STDIN") as copy:
+                for row in df_clean.itertuples(index=False, name=None):
+                    copy.write_row(row)
+        raw_conn.commit()
 
         elapsed = time.perf_counter() - t0
         rate = total_rows / elapsed
@@ -125,6 +260,10 @@ def load_table(engine, table_name: str, dry_run: bool = False, schema: str = DEM
         return True
 
     except Exception as e:
+        # Reused connection would stay in an aborted-transaction state for
+        # this worker's next table otherwise.
+        if hasattr(_thread_local, "raw_conn") and not _thread_local.raw_conn.closed:
+            _thread_local.raw_conn.rollback()
         elapsed = time.perf_counter() - t0
         console.print(f" [red]✗ FAILED after {elapsed:.1f}s: {e}[/red]")
         import traceback
@@ -157,16 +296,22 @@ def main() -> None:
         console.print("[green]Truncated.[/green]")
 
     t_start = time.perf_counter()
-    ok = 0
-    fail = 0
 
     console.print(f"\n[bold]Loading {len(tables)} tables → Supabase[/bold]\n")
-    for table_name in tables:
-        result = load_table(engine, table_name, dry_run=args.dry_run)
-        if result:
-            ok += 1
+    try:
+        if args.dry_run or len(tables) == 1:
+            results = [load_table(engine, t, dry_run=args.dry_run) for t in tables]
         else:
-            fail += 1
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                results = list(executor.map(lambda t: load_table(engine, t, dry_run=args.dry_run), tables))
+    finally:
+        # Explicit cleanup, not garbage collection — we're operating against
+        # a hard-capped connection pool (15 max), so every connection this
+        # run opened must be released, success or failure.
+        close_all_connections(engine)
+
+    ok = sum(1 for r in results if r)
+    fail = sum(1 for r in results if not r)
 
     elapsed = time.perf_counter() - t_start
     console.rule()
