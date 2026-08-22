@@ -1,0 +1,686 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { apiClient } from "../lib/api-client";
+import { logger } from "../lib/logger";
+import { formatCount } from "../lib/format";
+import { pickChartType, buildEChartsOption, ChartType } from "../lib/charts";
+import EChart from "./EChart";
+
+type Mode = "single" | "dashboard";
+
+type ProgressLine = { text: string; ok?: boolean };
+
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  error?: boolean;
+  elapsedMs?: number;
+  steps?: ProgressLine[];
+};
+
+type QueryResult = {
+  answer: string;
+  sql: string | null;
+  columns: string[] | null;
+  rows: Record<string, unknown>[] | null;
+  row_count: number | null;
+  headline: string | null;
+  elapsed_ms: number;
+};
+
+type StreamEvent =
+  | { type: "tool_call"; tool: string; args: Record<string, unknown> }
+  | { type: "tool_result"; tool: string; summary: string }
+  | { type: "answer_delta"; text: string }
+  | ({ type: "done" } & QueryResult);
+
+type ChartCard = {
+  localId: string;
+  question: string;
+  sql: string;
+  chartType: ChartType;
+  columns: string[];
+  rows: Record<string, unknown>[];
+  savedId: string | null;
+  saving: boolean;
+};
+
+function toolCallLabel(tool: string, args: Record<string, unknown>): string {
+  switch (tool) {
+    case "search_tables":
+      return `searching tables for "${args.query}"`;
+    case "search_columns":
+      return `checking columns in ${args.table_name}`;
+    case "run_sql":
+      return "running SQL";
+    default:
+      return `calling ${tool}`;
+  }
+}
+
+function formatElapsed(ms: number): string {
+  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
+let localIdCounter = 0;
+function nextLocalId(): string {
+  localIdCounter += 1;
+  return `chart-${localIdCounter}`;
+}
+
+const MIN_CHAT_PCT = 20;
+const MAX_CHAT_PCT = 60;
+const DEFAULT_CHAT_PCT = 100 / 3;
+
+export default function VisualizeView() {
+  const [mode, setMode] = useState<Mode>("single");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [progressLines, setProgressLines] = useState<ProgressLine[]>([]);
+  const [streamingText, setStreamingText] = useState("");
+  const [charts, setCharts] = useState<ChartCard[]>([]);
+  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
+  const [expandedSql, setExpandedSql] = useState<Set<string>>(new Set());
+  const [chatPct, setChatPct] = useState(DEFAULT_CHAT_PCT);
+  const [savingDashboard, setSavingDashboard] = useState(false);
+
+  const chatLogRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const draggingH = useRef(false);
+
+  useEffect(() => {
+    chatLogRef.current?.scrollTo({ top: chatLogRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, loading, progressLines, streamingText]);
+
+  useEffect(() => {
+    function onMove(e: MouseEvent) {
+      if (draggingH.current && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const pct = ((e.clientX - rect.left) / rect.width) * 100;
+        setChatPct(Math.min(MAX_CHAT_PCT, Math.max(MIN_CHAT_PCT, pct)));
+      }
+    }
+    function onUp() {
+      draggingH.current = false;
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
+  async function autoSaveChart(card: ChartCard) {
+    try {
+      const res = await apiClient.post<{ id: string }>("/api/charts", {
+        title: card.question,
+        question: card.question,
+        sql: card.sql,
+        chart_type: card.chartType,
+        chart_config: buildEChartsOption(card.chartType, card.columns, card.rows) ?? {},
+        result_cache: { columns: card.columns, rows: card.rows },
+      });
+      setCharts((prev) => prev.map((c) => (c.localId === card.localId ? { ...c, savedId: res.id, saving: false } : c)));
+    } catch (err) {
+      logger.error("auto-save chart failed", err);
+      setCharts((prev) => prev.map((c) => (c.localId === card.localId ? { ...c, saving: false } : c)));
+    }
+  }
+
+  async function saveChartManually(card: ChartCard) {
+    setCharts((prev) => prev.map((c) => (c.localId === card.localId ? { ...c, saving: true } : c)));
+    await autoSaveChart(card);
+  }
+
+  async function saveDashboard() {
+    const savedIds = charts.filter((c) => c.savedId).map((c) => c.savedId as string);
+    if (savedIds.length === 0) return;
+    const title = window.prompt("Dashboard title?", "My Dashboard");
+    if (!title) return;
+    setSavingDashboard(true);
+    try {
+      await apiClient.post("/api/dashboards", { title, chart_ids: savedIds });
+    } catch (err) {
+      logger.error("save dashboard failed", err);
+    } finally {
+      setSavingDashboard(false);
+    }
+  }
+
+  async function handleSend() {
+    const question = input.trim();
+    if (!question || loading) return;
+
+    const history = messages.map((m) => ({ role: m.role, content: m.content }));
+    setMessages((prev) => [...prev, { role: "user", content: question }]);
+    setInput("");
+    setLoading(true);
+    setProgressLines([]);
+    setStreamingText("");
+
+    let liveAnswer = "";
+    let finalResult: QueryResult | null = null;
+    const stepsAcc: ProgressLine[] = [];
+
+    try {
+      await apiClient.streamPost<StreamEvent>("/api/query", { question, history }, (event) => {
+        if (event.type === "tool_call") {
+          const line: ProgressLine = { text: toolCallLabel(event.tool, event.args) };
+          stepsAcc.push(line);
+          setProgressLines((prev) => [...prev, line]);
+        } else if (event.type === "tool_result" && event.tool === "run_sql") {
+          const ok = !event.summary.startsWith("error");
+          const line: ProgressLine = { text: event.summary, ok };
+          stepsAcc.push(line);
+          setProgressLines((prev) => [...prev, line]);
+        } else if (event.type === "answer_delta") {
+          liveAnswer += event.text;
+          setStreamingText(liveAnswer);
+        } else if (event.type === "done") {
+          finalResult = {
+            answer: event.answer,
+            sql: event.sql,
+            columns: event.columns,
+            rows: event.rows,
+            row_count: event.row_count,
+            headline: event.headline,
+            elapsed_ms: event.elapsed_ms,
+          };
+        }
+      });
+
+      // See AskView.tsx for why this needs an explicit cast, not just an
+      // annotation — a documented TS control-flow-analysis limitation with
+      // `let` reassigned inside a closure passed to an awaited function.
+      const settled = finalResult as QueryResult | null;
+      const answerText = (settled && settled.answer) || liveAnswer || (settled && settled.headline) || "(no answer)";
+      setMessages((prev) => [...prev, { role: "assistant", content: answerText, elapsedMs: settled?.elapsed_ms, steps: stepsAcc }]);
+
+      if (settled && settled.sql && settled.columns && settled.rows && settled.rows.length > 0) {
+        const chartType = pickChartType(settled.columns, settled.rows);
+        const card: ChartCard = {
+          localId: nextLocalId(),
+          question,
+          sql: settled.sql,
+          chartType,
+          columns: settled.columns,
+          rows: settled.rows,
+          savedId: null,
+          saving: mode === "dashboard",
+        };
+        setCharts((prev) => (mode === "single" ? [card] : [...prev, card]));
+        if (mode === "dashboard") {
+          autoSaveChart(card);
+        }
+      }
+    } catch (err) {
+      logger.error("query failed", err);
+      setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong answering that — try rephrasing the question.", error: true, steps: stepsAcc }]);
+    } finally {
+      setLoading(false);
+      setProgressLines([]);
+      setStreamingText("");
+    }
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  }
+
+  function toggleSteps(index: number) {
+    setExpandedSteps((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }
+
+  function toggleSql(localId: string) {
+    setExpandedSql((prev) => {
+      const next = new Set(prev);
+      if (next.has(localId)) next.delete(localId);
+      else next.add(localId);
+      return next;
+    });
+  }
+
+  return (
+    <div style={styles.split} ref={containerRef}>
+      <div style={{ ...styles.chatPanel, width: `${chatPct}%` }}>
+        <div style={styles.modeRow}>
+          <button style={{ ...styles.modeButton, ...(mode === "single" ? styles.modeButtonActive : {}) }} onClick={() => setMode("single")}>
+            single
+          </button>
+          <button style={{ ...styles.modeButton, ...(mode === "dashboard" ? styles.modeButtonActive : {}) }} onClick={() => setMode("dashboard")}>
+            dashboard
+          </button>
+        </div>
+        <div style={styles.chatLog} ref={chatLogRef}>
+          {messages.length === 0 && (
+            <div style={styles.emptyHint}>
+              Ask for a visualization — e.g. "claims by status" or "monthly premium trend". {mode === "dashboard" ? "Each answer adds a chart to the dashboard on the right." : "Each question replaces the chart on the right."}
+            </div>
+          )}
+          {messages.map((m, i) => (
+            <div key={i} style={styles.bubbleRow}>
+              {m.steps && m.steps.length > 0 && (
+                <div style={styles.stepsWrap}>
+                  <button style={styles.stepsToggle} onClick={() => toggleSteps(i)}>
+                    {expandedSteps.has(i) ? "▾" : "▸"} {m.steps.length} step{m.steps.length === 1 ? "" : "s"}
+                  </button>
+                  {expandedSteps.has(i) && (
+                    <div style={styles.progressBox}>
+                      {m.steps.map((line, j) => (
+                        <ProgressLineView key={j} line={line} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div style={{ ...styles.bubble, ...(m.role === "user" ? styles.bubbleUser : styles.bubbleAssistant), ...(m.error ? styles.bubbleError : {}) }}>
+                {m.role === "assistant" ? (
+                  <div className="markdown-body">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  m.content
+                )}
+              </div>
+              {m.elapsedMs !== undefined && <div style={styles.elapsedTag}>{formatElapsed(m.elapsedMs)}</div>}
+            </div>
+          ))}
+          {loading && (
+            <div style={styles.bubbleRow}>
+              {progressLines.length > 0 && (
+                <div style={styles.progressBox}>
+                  {progressLines.map((line, i) => (
+                    <ProgressLineView key={i} line={line} />
+                  ))}
+                </div>
+              )}
+              {streamingText ? (
+                <div style={{ ...styles.bubble, ...styles.bubbleAssistant }}>
+                  <div className="markdown-body">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingText}</ReactMarkdown>
+                  </div>
+                  <span style={styles.cursor}>▍</span>
+                </div>
+              ) : (
+                progressLines.length === 0 && (
+                  <div style={{ ...styles.bubble, ...styles.bubbleAssistant, ...styles.dim }}>thinking…</div>
+                )
+              )}
+            </div>
+          )}
+        </div>
+        <div style={styles.inputRow}>
+          <textarea
+            style={styles.textarea}
+            placeholder="describe the chart you want…"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKeyDown}
+            rows={2}
+          />
+          <button style={styles.sendButton} onClick={handleSend} disabled={loading || !input.trim()}>
+            send
+          </button>
+        </div>
+      </div>
+
+      <div
+        style={styles.hDivider}
+        onMouseDown={(e) => {
+          draggingH.current = true;
+          e.preventDefault();
+        }}
+      >
+        <div style={styles.hDividerHandle} />
+      </div>
+
+      <div style={styles.canvasPanel}>
+        {mode === "dashboard" && charts.length > 0 && (
+          <div style={styles.dashboardHeader}>
+            <span style={styles.dim}>{charts.length} chart{charts.length === 1 ? "" : "s"}</span>
+            <button style={styles.saveDashboardButton} onClick={saveDashboard} disabled={savingDashboard || charts.every((c) => !c.savedId)}>
+              {savingDashboard ? "saving…" : "save as dashboard"}
+            </button>
+          </div>
+        )}
+
+        {charts.length === 0 && <div style={styles.emptyHint}>Charts will appear here once you ask a question.</div>}
+
+        <div style={mode === "dashboard" ? styles.grid : styles.singleWrap}>
+          {charts.map((card) => (
+            <ChartCardView
+              key={card.localId}
+              card={card}
+              compact={mode === "dashboard"}
+              sqlExpanded={expandedSql.has(card.localId)}
+              onToggleSql={() => toggleSql(card.localId)}
+              onSave={mode === "single" ? () => saveChartManually(card) : undefined}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChartCardView({
+  card,
+  compact,
+  sqlExpanded,
+  onToggleSql,
+  onSave,
+}: {
+  card: ChartCard;
+  compact: boolean;
+  sqlExpanded: boolean;
+  onToggleSql: () => void;
+  onSave?: () => void;
+}) {
+  const option = card.chartType === "stat" || card.chartType === "table" ? null : buildEChartsOption(card.chartType, card.columns, card.rows);
+
+  return (
+    <div style={compact ? styles.chartCardCompact : styles.chartCard}>
+      <div style={styles.chartCardTitle}>{card.question}</div>
+
+      {option && <EChart option={option} height={compact ? 220 : 360} />}
+
+      {card.chartType === "stat" && (
+        <div style={styles.statValue}>{formatCount(Number(Object.values(card.rows[0])[0]))}</div>
+      )}
+
+      {(card.chartType === "table" || (!option && card.chartType !== "stat")) && (
+        <div style={styles.dim}>No clear chart shape for this result — {formatCount(card.rows.length)} rows, see SQL for the raw data.</div>
+      )}
+
+      <div style={styles.chartCardFooter}>
+        <button style={styles.footerButton} onClick={onToggleSql}>{sqlExpanded ? "hide sql" : "view sql"}</button>
+        {onSave && (
+          <button style={styles.footerButton} onClick={onSave} disabled={card.saving || !!card.savedId}>
+            {card.savedId ? "saved" : card.saving ? "saving…" : "save chart"}
+          </button>
+        )}
+        {compact && card.savedId && <span style={styles.savedTag}>saved</span>}
+      </div>
+
+      {sqlExpanded && <pre style={styles.sqlBox}>{card.sql}</pre>}
+    </div>
+  );
+}
+
+function ProgressLineView({ line }: { line: ProgressLine }) {
+  if (line.ok === undefined) {
+    return <div style={styles.progressLine}>{line.text}</div>;
+  }
+  return (
+    <div style={styles.progressLine}>
+      <span style={line.ok ? styles.progressOk : styles.progressErr}>{line.ok ? "✓" : "✗"}</span> {line.text}
+    </div>
+  );
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  split: {
+    display: "flex",
+    height: "calc(100vh - 55px)",
+  },
+  chatPanel: {
+    flexShrink: 0,
+    display: "flex",
+    flexDirection: "column",
+    minWidth: 0,
+  },
+  modeRow: {
+    display: "flex",
+    gap: 8,
+    padding: "12px 12px 0",
+  },
+  modeButton: {
+    flex: 1,
+    background: "transparent",
+    border: "1px solid var(--border)",
+    color: "var(--text-dim)",
+    padding: "7px 0",
+    fontFamily: "var(--mono)",
+    fontSize: 12,
+    cursor: "pointer",
+    borderRadius: 2,
+  },
+  modeButtonActive: {
+    borderColor: "var(--accent)",
+    color: "var(--accent)",
+  },
+  chatLog: {
+    flex: 1,
+    overflowY: "auto",
+    padding: "16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+  emptyHint: {
+    fontSize: 12,
+    color: "var(--text-faint)",
+    lineHeight: 1.5,
+    padding: "8px 4px",
+  },
+  bubbleRow: {
+    display: "flex",
+    flexDirection: "column",
+  },
+  bubble: {
+    fontSize: 13,
+    lineHeight: 1.5,
+    padding: "8px 12px",
+    borderRadius: 2,
+    maxWidth: "90%",
+    whiteSpace: "pre-wrap",
+  },
+  bubbleUser: {
+    alignSelf: "flex-end",
+    background: "var(--accent-dim)",
+    color: "var(--text)",
+  },
+  bubbleAssistant: {
+    alignSelf: "flex-start",
+    background: "var(--surface)",
+    color: "var(--text)",
+    border: "1px solid var(--border)",
+  },
+  bubbleError: {
+    borderColor: "var(--error)",
+    color: "var(--error)",
+  },
+  elapsedTag: {
+    alignSelf: "flex-start",
+    fontSize: 10,
+    color: "var(--text-faint)",
+    marginTop: 3,
+    marginLeft: 2,
+  },
+  dim: {
+    color: "var(--text-dim)",
+    fontSize: 12,
+  },
+  stepsWrap: {
+    alignSelf: "flex-start",
+    display: "flex",
+    flexDirection: "column",
+  },
+  stepsToggle: {
+    alignSelf: "flex-start",
+    background: "transparent",
+    border: "none",
+    color: "var(--text-faint)",
+    fontFamily: "var(--mono)",
+    fontSize: 11,
+    padding: "2px 2px 4px",
+    cursor: "pointer",
+  },
+  progressBox: {
+    alignSelf: "flex-start",
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    marginBottom: 6,
+  },
+  progressLine: {
+    fontSize: 11,
+    color: "var(--text-faint)",
+    fontFamily: "var(--mono)",
+  },
+  progressOk: {
+    color: "var(--accent)",
+  },
+  progressErr: {
+    color: "var(--error)",
+  },
+  cursor: {
+    display: "inline-block",
+    color: "var(--accent)",
+    animation: "blink-cursor 1s steps(1) infinite",
+  },
+  inputRow: {
+    display: "flex",
+    gap: 8,
+    padding: "12px",
+    borderTop: "1px solid var(--border)",
+  },
+  textarea: {
+    flex: 1,
+    resize: "none",
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    color: "var(--text)",
+    fontFamily: "var(--mono)",
+    fontSize: 13,
+    padding: "8px 10px",
+    borderRadius: 2,
+  },
+  sendButton: {
+    background: "transparent",
+    border: "1px solid var(--accent)",
+    color: "var(--accent)",
+    padding: "0 16px",
+    fontFamily: "var(--mono)",
+    fontSize: 12,
+    cursor: "pointer",
+    borderRadius: 2,
+  },
+  hDivider: {
+    width: 10,
+    flexShrink: 0,
+    cursor: "col-resize",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderLeft: "1px solid var(--border)",
+    borderRight: "1px solid var(--border)",
+    background: "var(--surface)",
+  },
+  hDividerHandle: {
+    width: 3,
+    height: 32,
+    borderRadius: 2,
+    background: "var(--border-strong)",
+  },
+  canvasPanel: {
+    flex: 1,
+    minWidth: 0,
+    overflowY: "auto",
+    padding: "20px 24px",
+  },
+  dashboardHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  saveDashboardButton: {
+    background: "transparent",
+    border: "1px solid var(--accent)",
+    color: "var(--accent)",
+    padding: "6px 14px",
+    fontFamily: "var(--mono)",
+    fontSize: 12,
+    cursor: "pointer",
+    borderRadius: 2,
+  },
+  singleWrap: {
+    display: "flex",
+    flexDirection: "column",
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
+    gap: 16,
+  },
+  chartCard: {
+    border: "1px solid var(--border)",
+    borderRadius: 2,
+    padding: "18px 20px",
+    background: "var(--bg)",
+  },
+  chartCardCompact: {
+    border: "1px solid var(--border)",
+    borderRadius: 2,
+    padding: "14px 16px",
+    background: "var(--bg)",
+  },
+  chartCardTitle: {
+    fontSize: 13,
+    color: "var(--text)",
+    marginBottom: 10,
+  },
+  statValue: {
+    fontSize: 40,
+    fontWeight: 600,
+    color: "var(--accent)",
+    padding: "20px 0",
+    textAlign: "center",
+  },
+  chartCardFooter: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 10,
+  },
+  footerButton: {
+    background: "transparent",
+    border: "1px solid var(--border)",
+    color: "var(--text-dim)",
+    padding: "4px 10px",
+    fontFamily: "var(--mono)",
+    fontSize: 11,
+    cursor: "pointer",
+    borderRadius: 2,
+  },
+  savedTag: {
+    fontSize: 10,
+    color: "var(--accent)",
+  },
+  sqlBox: {
+    marginTop: 10,
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    borderRadius: 2,
+    padding: "10px 12px",
+    fontFamily: "var(--mono)",
+    fontSize: 11,
+    color: "var(--text)",
+    whiteSpace: "pre-wrap",
+    overflowX: "auto",
+  },
+};
