@@ -1,3 +1,4 @@
+import threading
 import uuid
 from sqlalchemy import text
 
@@ -24,7 +25,35 @@ def _existing_run_id_for_hash(engine, hash_value: str) -> str | None:
     return row[0] if row else None
 
 
-def run_discovery(db_url: str, schema: str = DEMO_SCHEMA) -> str:
+def _run_pipeline(engine, run_id: str, schema: str, tables) -> None:
+    try:
+        update_step(engine, run_id, "profiling")
+        profiles_by_table = {}
+        for t in tables:
+            profiles_by_table[t.name] = profile_table(engine, schema, t)
+            update_step(engine, run_id, f"profiling:{t.name}")
+
+        update_step(engine, run_id, "inferring_relationships")
+        infer_relationships(engine, schema, tables)  # logged; consumed by Stage 1b, not persisted here
+
+        for table in tables:
+            profiles = profiles_by_table[table.name]
+            update_step(engine, run_id, f"describing:{table.name}")
+            table_desc = describe_table(table, profiles)
+            column_descs = {
+                col.name: describe_column(table.name, col, profiles[col.name])
+                for col in table.columns if col.name in profiles
+            }
+
+            update_step(engine, run_id, f"embedding:{table.name}")
+            embed_and_store(engine, table.name, table_desc, column_descs)
+
+        mark_done(engine, run_id)
+    except Exception as e:
+        mark_failed(engine, run_id, str(e))
+
+
+def run_discovery(db_url: str = "", schema: str = DEMO_SCHEMA, background: bool = False) -> str:
     engine = get_engine()
     run_migrations(engine)
 
@@ -39,29 +68,12 @@ def run_discovery(db_url: str, schema: str = DEMO_SCHEMA) -> str:
     run_id = str(uuid.uuid4())
     start_run(engine, run_id, hash_value)
 
-    try:
-        update_step(engine, run_id, "profiling")
-        profiles_by_table = {t.name: profile_table(engine, schema, t) for t in tables}
-
-        update_step(engine, run_id, "inferring_relationships")
-        infer_relationships(engine, schema, tables)  # logged; consumed by Stage 1b, not persisted here
-
-        update_step(engine, run_id, "describing")
-        for table in tables:
-            profiles = profiles_by_table[table.name]
-            table_desc = describe_table(table, profiles)
-            column_descs = {
-                col.name: describe_column(table.name, col, profiles[col.name])
-                for col in table.columns if col.name in profiles
-            }
-
-            update_step(engine, run_id, f"embedding:{table.name}")
-            embed_and_store(engine, table.name, table_desc, column_descs)
-
-        mark_done(engine, run_id)
-    except Exception as e:
-        mark_failed(engine, run_id, str(e))
-        raise
+    if background:
+        # API path: return run_id immediately, run the (potentially long,
+        # LLM-call-heavy) pipeline off-thread so the request doesn't block.
+        threading.Thread(target=_run_pipeline, args=(engine, run_id, schema, tables), daemon=True).start()
+    else:
+        _run_pipeline(engine, run_id, schema, tables)
 
     return run_id
 
