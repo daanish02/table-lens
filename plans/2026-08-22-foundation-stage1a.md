@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Generator logic and output must stay byte-identical — only schema-qualification changes, verified by checksum diff (spec Decision 5).
-- LLM access goes through LangChain, routed through OpenRouter (OpenAI-compatible endpoint) — never a hardcoded provider SDK call; model is a `config.py` string swap (spec Decision 3). Embeddings go direct to OpenAI via LangChain (OpenRouter has no embeddings endpoint).
+- LLM and embeddings access both go through LangChain, routed through OpenRouter (OpenAI-compatible endpoint) — never a hardcoded provider SDK call; model is a `config.py` string swap (spec Decision 3). One API key for both.
 - Cross-cutting tunables live in `config.py`; low-impact local constants stay as top-of-file constants in the file that uses them (spec Decision 4).
 - Read-only DB access is enforced at the connection level, not just prompt instructions (spec, PRD "Key Architectural Decisions" #4).
 - Generated insurance data lives in schema `demo`; table-lens's own tables (`table_embeddings`, `column_embeddings`, later `saved_charts`/`dashboards`) live in `public` (spec Decision 8).
@@ -89,7 +89,7 @@ frontend/                             # Task 13
 
 **Interfaces contract (names every later task relies on):**
 - `app.logging.logger.get_logger(name: str) -> structlog.stdlib.BoundLogger`
-- `app.config` module-level constants: `DEMO_SCHEMA`, `DISCOVERY_SAMPLE_PCT`, `DISCOVERY_TOP_N_CATEGORICAL`, `OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL`, `LLM_MODEL`, `LLM_MAX_RETRIES`, `OPENAI_API_KEY`, `EMBEDDING_MODEL`, `EMBEDDING_DIM`
+- `app.config` module-level constants: `DEMO_SCHEMA`, `DISCOVERY_SAMPLE_PCT`, `DISCOVERY_TOP_N_CATEGORICAL`, `OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL`, `LLM_MODEL`, `LLM_MAX_RETRIES`, `EMBEDDING_MODEL`, `EMBEDDING_DIM`
 - `app.db.connection.get_engine(readonly: bool = False) -> sqlalchemy.Engine`
 - `app.discovery.idempotency.schema_hash(schema_snapshot: dict) -> str`, `should_skip(engine, schema_hash: str) -> bool`, `mark_done(engine, schema_hash: str) -> None`
 - `app.discovery.introspect.get_schema_snapshot(engine, schema: str) -> list[TableInfo]` where `TableInfo` is a `dataclass` with `name: str`, `columns: list[ColumnInfo]`; `ColumnInfo` has `name: str`, `data_type: str`, `is_pk: bool`, `is_fk: bool`, `fk_table: str | None`, `fk_column: str | None`
@@ -291,7 +291,7 @@ git commit -m "feat(generator): schema-qualify DDL and loader for demo schema"
 - Test: `backend/tests/test_logger.py`
 
 **Interfaces:**
-- Produces: `app.logging.logger.get_logger(name: str)`, `app.config.{DEMO_SCHEMA, DISCOVERY_SAMPLE_PCT, DISCOVERY_TOP_N_CATEGORICAL, OPENROUTER_API_KEY, OPENROUTER_BASE_URL, LLM_MODEL, LLM_MAX_RETRIES, OPENAI_API_KEY, EMBEDDING_MODEL, EMBEDDING_DIM, DB_URL}`
+- Produces: `app.logging.logger.get_logger(name: str)`, `app.config.{DEMO_SCHEMA, DISCOVERY_SAMPLE_PCT, DISCOVERY_TOP_N_CATEGORICAL, OPENROUTER_API_KEY, OPENROUTER_BASE_URL, LLM_MODEL, LLM_MAX_RETRIES, EMBEDDING_MODEL, EMBEDDING_DIM, DB_URL}`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -347,11 +347,18 @@ dependencies = [
     "psycopg[binary]>=3.2.0",
     "pgvector>=0.3.0",
     "langchain>=0.3.0",
-    "langchain-openai>=0.2.0",   # used for both: OpenRouter (LLM, via base_url) and OpenAI (embeddings)
+    "langchain-openai>=0.2.0",   # OpenAI-compatible client, used against OpenRouter for both LLM and embeddings
     "structlog>=24.4.0",
     "slowapi>=0.1.9",
     "pydantic-settings>=2.6.0",
     "python-dotenv>=1.0.0",
+    # generator (backend/app/generator/) deps — one shared venv for the whole backend
+    "faker>=24.0.0",
+    "numpy>=1.26.0",
+    "pandas>=2.2.0",
+    "pyarrow>=15.0.0",
+    "tqdm>=4.66.0",
+    "rich>=13.7.0",
 ]
 
 [dependency-groups]
@@ -392,14 +399,13 @@ DISCOVERY_FK_OVERLAP_SAMPLE = 1000     # rows sampled for FK-overlap inference
 DISCOVERY_FK_OVERLAP_THRESHOLD = 0.90  # % overlap required to infer a relationship
 
 # ── LLM / embeddings (LangChain — provider is a config swap, never hardcoded) ─
-# LLM goes through OpenRouter's OpenAI-compatible endpoint; embeddings go
-# direct to OpenAI (OpenRouter has no embeddings endpoint).
+# Both LLM and embeddings go through OpenRouter's OpenAI-compatible endpoint —
+# one API key, one base URL, model is just a string swap.
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-LLM_MODEL = "anthropic/claude-sonnet-4.6"   # OpenRouter model slug
+LLM_MODEL = "anthropic/claude-sonnet-4.6"           # OpenRouter model slug
 LLM_MAX_RETRIES = 3
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_MODEL = "openai/text-embedding-3-small"   # OpenRouter model slug
 EMBEDDING_DIM = 1536
 
 # ── API ───────────────────────────────────────────────────────────────────
@@ -521,13 +527,23 @@ log = get_logger(__name__)
 READONLY_DB_URL = os.getenv("SUPABASE_DB_URL_READONLY", DB_URL)
 
 
+def _normalize(url: str) -> str:
+    """Supabase issues postgres:// URLs; SQLAlchemy + psycopg3 need the
+    explicit postgresql+psycopg:// scheme."""
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url[len("postgresql://"):]
+    return url
+
+
 @lru_cache
 def get_engine(readonly: bool = False) -> Engine:
     url = READONLY_DB_URL if readonly else DB_URL
     if not url:
         raise RuntimeError("SUPABASE_DB_URL is not set")
     log.info("db.engine.create", readonly=readonly)
-    return create_engine(url, pool_pre_ping=True)
+    return create_engine(_normalize(url), pool_pre_ping=True)
 ```
 
 - [ ] **Step 4: Provision the read-only role (manual, one-time)**
@@ -1546,7 +1562,7 @@ from functools import lru_cache
 from langchain_openai import OpenAIEmbeddings
 from sqlalchemy import text, Engine
 
-from app.config import EMBEDDING_MODEL
+from app.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, EMBEDDING_MODEL
 from app.logging.logger import get_logger
 
 log = get_logger(__name__)
@@ -1554,7 +1570,13 @@ log = get_logger(__name__)
 
 @lru_cache
 def _get_embeddings():
-    return OpenAIEmbeddings(model=EMBEDDING_MODEL)
+    # OpenRouter also exposes an embeddings route via its OpenAI-compatible
+    # endpoint — same key/base_url as the LLM, no separate provider needed.
+    return OpenAIEmbeddings(
+        model=EMBEDDING_MODEL,
+        api_key=OPENROUTER_API_KEY,
+        base_url=OPENROUTER_BASE_URL,
+    )
 
 
 def embed_and_store(
@@ -1627,8 +1649,8 @@ import pytest
 from app.discovery.orchestrator import run_discovery, get_discovery_status
 
 requires_full_stack = pytest.mark.skipif(
-    not (os.getenv("SUPABASE_DB_URL") and os.getenv("OPENROUTER_API_KEY") and os.getenv("OPENAI_API_KEY")),
-    reason="requires SUPABASE_DB_URL, OPENROUTER_API_KEY, OPENAI_API_KEY",
+    not (os.getenv("SUPABASE_DB_URL") and os.getenv("OPENROUTER_API_KEY")),
+    reason="requires SUPABASE_DB_URL, OPENROUTER_API_KEY",
 )
 
 
