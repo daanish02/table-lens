@@ -30,9 +30,9 @@ DISCOVERY_HISTOGRAM_MAX_BUCKETS = 20   # numeric-column histograms use min(this,
 # one API key, one base URL, model is just a string swap.
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-LLM_MODEL = "deepseek/deepseek-v4-flash-0731"       # OpenRouter model slug
+LLM_MODEL = "x-ai/grok-4.6"       # OpenRouter model slug
 LLM_MAX_RETRIES = 3
-LLM_MAX_TOKENS = 4000                               # deepseek-v4-flash spends a variable amount on
+LLM_MAX_TOKENS = 6000                                # deepseek-v4-flash spends a variable amount on
                                                      # internal reasoning before any answer text — a
                                                      # truncated call (empty output) wastes the whole
                                                      # request and needs a retry, which costs more than
