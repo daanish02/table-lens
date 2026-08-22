@@ -77,3 +77,49 @@ def test_keeps_template_string_formatter():
     }
     result = validate_chart_spec(spec)
     assert result["option"]["tooltip"]["formatter"] == "{b}: {c} ({d}%)"
+
+
+def test_moves_bottom_legend_to_top_when_labels_rotated():
+    spec = {
+        "title": "x",
+        "chart_type": "bar",
+        "option": {
+            "legend": {"bottom": 0},
+            "xAxis": {"type": "category", "data": ["A"], "axisLabel": {"rotate": 45}},
+            "series": [{"type": "bar", "data": [1]}],
+        },
+    }
+    result = validate_chart_spec(spec)
+    assert "bottom" not in result["option"]["legend"]
+    assert result["option"]["legend"]["top"] == 0
+    assert result["option"]["grid"]["bottom"] == "18%"
+
+
+def test_moves_bottom_legend_to_top_when_many_categories():
+    spec = {
+        "title": "x",
+        "chart_type": "bar",
+        "option": {
+            "legend": {"bottom": 0},
+            "xAxis": {"type": "category", "data": [f"cat_{i}" for i in range(15)]},
+            "series": [{"type": "bar", "data": list(range(15))}],
+        },
+    }
+    result = validate_chart_spec(spec)
+    assert "bottom" not in result["option"]["legend"]
+    assert result["option"]["grid"]["bottom"] == "18%"
+
+
+def test_leaves_layout_untouched_when_few_categories_no_rotation():
+    spec = {
+        "title": "x",
+        "chart_type": "bar",
+        "option": {
+            "legend": {"bottom": 0},
+            "xAxis": {"type": "category", "data": ["A", "B", "C"]},
+            "series": [{"type": "bar", "data": [1, 2, 3]}],
+        },
+    }
+    result = validate_chart_spec(spec)
+    assert result["option"]["legend"] == {"bottom": 0}
+    assert "grid" not in result["option"]

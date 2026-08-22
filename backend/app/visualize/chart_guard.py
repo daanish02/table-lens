@@ -31,6 +31,55 @@ def _strip_js_function_strings(node):
             _strip_js_function_strings(item)
 
 
+def _has_rotated_or_crowded_labels(x_axis) -> bool:
+    """True if this xAxis has rotated labels or enough categories that rotation
+    is likely — either signal means a bottom-anchored legend will collide with
+    the axis labels."""
+    if not isinstance(x_axis, dict):
+        return False
+    axis_label = x_axis.get("axisLabel")
+    if isinstance(axis_label, dict) and axis_label.get("rotate"):
+        return True
+    data = x_axis.get("data")
+    return isinstance(data, list) and len(data) > 8
+
+
+def _normalize_layout(option: dict) -> None:
+    """Safety net for the class of bug where the LLM anchors the legend to the
+    bottom of a chart with rotated/crowded x-axis category labels, so the two
+    overlap. Same generate-then-validate pattern as SQL — the prompt already
+    asks the LLM to avoid this, but this forcibly corrects it regardless of
+    what the LLM actually produced."""
+    x_axis_entries = option.get("xAxis")
+    if isinstance(x_axis_entries, dict):
+        x_axis_entries = [x_axis_entries]
+    if not isinstance(x_axis_entries, list):
+        return
+
+    crowded = any(_has_rotated_or_crowded_labels(x) for x in x_axis_entries)
+    if not crowded:
+        return
+
+    legend = option.get("legend")
+    if isinstance(legend, list):
+        legends = legend
+    elif isinstance(legend, dict):
+        legends = [legend]
+    else:
+        legends = []
+
+    for entry in legends:
+        if "bottom" in entry:
+            del entry["bottom"]
+            entry["top"] = entry.get("top", 0)
+
+    grid = option.get("grid")
+    if not isinstance(grid, dict):
+        grid = {}
+        option["grid"] = grid
+    grid["bottom"] = "18%"
+
+
 def validate_chart_spec(spec: dict) -> dict:
     if not isinstance(spec, dict):
         raise ChartValidationError("chart spec must be a JSON object")
@@ -61,4 +110,5 @@ def validate_chart_spec(spec: dict) -> dict:
             raise ChartValidationError("each series entry must be an object with a 'type'")
 
     _strip_js_function_strings(option)
+    _normalize_layout(option)
     return spec
