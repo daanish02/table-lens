@@ -1,4 +1,4 @@
-# table-lens — Architecture
+# Table Lens — Architecture
 
 ## Status
 Canon. Update whenever a component is added, replaced, or its role changes.
@@ -84,14 +84,17 @@ Owns pgvector schema migrations.
 FastAPI route layer. Thin — delegates to `discovery/` and `query/`. Rate
 limiting (IP-based, 20 req/min) applied here.
 
-### `backend/app/logging/`
-Structured logging (structlog over stdlib logging), shared config used by
-every backend component — generator, discovery, query, api. JSON output to
-both stdout and a rotating file (`backend/logs/app.log`, not committed) —
-one place to change format/level rather than per-module `print`/ad-hoc
-logging calls. Frontend logging stays console-only (`frontend/lib/logger.ts`)
-since browser JS has no filesystem access — there is no frontend equivalent
-of `backend/logs/`.
+### `backend/app/utils/`
+Backend-wide utilities not specific to one component — currently just
+`logger.py`: stdlib `logging`, shared config used by every backend
+component (generator, discovery, query, api). Plain readable lines
+(`timestamp | level | module:func | message`) to both stdout and a rotating
+file (`backend/logs/app.log`, not committed) — one place to change
+format/level rather than per-module `print`/ad-hoc logging calls. No
+sensitive data (DB URLs, API keys, raw vectors) ever goes into a log line.
+Frontend logging stays console-only (`frontend/lib/logger.ts`) since browser
+JS has no filesystem access — there is no frontend equivalent of
+`backend/logs/`.
 
 ### `frontend/`
 Next.js 14, App Router. Split-screen chat + visualization UI. SSR chosen

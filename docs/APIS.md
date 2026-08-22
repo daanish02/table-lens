@@ -1,4 +1,4 @@
-# table-lens — API Surface
+# Table Lens — API Surface
 
 ## Status
 Canon. Update whenever an endpoint is added, changed, or removed. Build/

@@ -1,4 +1,4 @@
-# table-lens — Progress
+# Table Lens — Progress
 
 ## Status
 Canon. Sole place build/rollout status lives — HLD docs (PRD, ARCHITECTURE,

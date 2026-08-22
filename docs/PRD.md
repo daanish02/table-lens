@@ -1,4 +1,4 @@
-# table-lens — Product Requirements
+# Table Lens — Product Requirements
 
 ## Status
 Canon. Update whenever product scope or decisions change — this file is the

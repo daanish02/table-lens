@@ -1,4 +1,4 @@
-# table-lens — Schemas
+# Table Lens — Schemas
 
 ## Status
 Canon. Update whenever a table is added, changed, or removed. Build/rollout
@@ -6,7 +6,7 @@ progress lives in `docs/PROGRESS.md`, not here.
 
 ## Schema Separation
 Generated insurance data lives in a dedicated `demo` Postgres schema — not
-`public`. `public` is reserved for table-lens's own product/meta tables
+`public`. `public` is reserved for Table Lens's own product/meta tables
 (pgvector embeddings, `saved_charts`, `dashboards`). Keeps "the data being
 analyzed" separate from "table-lens's own state," and mirrors a realistic
 discovery-agent-profiles-a-foreign-database setup.
