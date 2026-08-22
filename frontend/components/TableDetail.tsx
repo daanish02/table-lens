@@ -35,6 +35,13 @@ type ColumnResult = {
   profile: ColumnProfile | null;
 };
 
+type TableMeta = {
+  table_name: string;
+  description: string;
+  row_count: number | null;
+  column_count: number | null;
+};
+
 const PAGE_SIZE = 50;
 
 export default function TableDetail({ table }: { table: string }) {
@@ -44,6 +51,7 @@ export default function TableDetail({ table }: { table: string }) {
   const [loading, setLoading] = useState(true);
   const [columns, setColumns] = useState<ColumnResult[] | null>(null);
   const [columnsLoading, setColumnsLoading] = useState(true);
+  const [meta, setMeta] = useState<TableMeta | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -61,8 +69,11 @@ export default function TableDetail({ table }: { table: string }) {
   useEffect(() => {
     setColumnsLoading(true);
     apiClient
-      .get<{ columns: ColumnResult[] }>(`/api/discover/results/${table}`)
-      .then((r) => setColumns(r.columns))
+      .get<{ table: TableMeta | null; columns: ColumnResult[] }>(`/api/discover/results/${table}`)
+      .then((r) => {
+        setColumns(r.columns);
+        setMeta(r.table);
+      })
       .catch((err) => logger.error("failed to load column info", err))
       .finally(() => setColumnsLoading(false));
   }, [table]);
@@ -73,6 +84,25 @@ export default function TableDetail({ table }: { table: string }) {
     <main style={styles.page}>
       <Link href="/data" style={styles.backLink}>← back to data overview</Link>
       <h1 style={styles.title}>{table}</h1>
+
+      {columnsLoading && (
+        <div style={{ marginTop: 8, marginBottom: 20 }}>
+          <Skeleton width={420} height={13} />
+          <div style={{ marginTop: 8 }}>
+            <Skeleton width={160} height={11} />
+          </div>
+        </div>
+      )}
+
+      {!columnsLoading && meta && (
+        <div style={styles.tableMeta}>
+          {meta.description && <div style={styles.tableMetaDesc}>{meta.description}</div>}
+          <div style={styles.tableMetaStats}>
+            {meta.row_count != null && <span>{formatCount(meta.row_count)} rows</span>}
+            {meta.column_count != null && <span>{formatCount(meta.column_count)} columns</span>}
+          </div>
+        </div>
+      )}
 
       {error && <div style={styles.errorBox}>{error}</div>}
 
@@ -250,6 +280,26 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     color: "var(--text-dim)",
     marginBottom: 16,
+  },
+  tableMeta: {
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  tableMetaDesc: {
+    fontFamily: "var(--sans)",
+    fontSize: 14,
+    lineHeight: 1.6,
+    color: "var(--text-dim)",
+    maxWidth: 760,
+  },
+  tableMetaStats: {
+    display: "flex",
+    gap: 14,
+    marginTop: 10,
+    fontSize: 11,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    color: "var(--text-faint)",
   },
   dim: {
     color: "var(--text-dim)",

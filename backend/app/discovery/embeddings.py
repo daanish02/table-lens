@@ -146,6 +146,12 @@ def list_table_descriptions(engine: Engine) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def get_table_description(engine: Engine, table_name: str) -> dict | None:
+    with engine.connect() as conn:
+        row = conn.execute(text(queries.load("embeddings_get_table")), {"t": table_name}).mappings().first()
+    return dict(row) if row else None
+
+
 def get_column_descriptions(engine: Engine, table_name: str) -> list[dict]:
     with engine.connect() as conn:
         rows = conn.execute(text(queries.load("embeddings_list_columns")), {"t": table_name}).mappings().all()
