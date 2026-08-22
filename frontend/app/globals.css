@@ -27,6 +27,40 @@ body {
   font-family: var(--mono);
 }
 
+/* Kite/diamond mesh — two mirrored diagonal line sets at a low angle from
+   horizontal, crossing to form elongated quadrilaterals, teal-accented.
+   A real DOM element (see .bg-mesh usage in app/layout.tsx) rendered as
+   the very first child of body and painted behind everything else purely
+   by DOM order — no z-index, no pseudo-element-behind-opaque-parent-
+   background footgun. A diagonal repeating-linear-gradient always tiles
+   itself seamlessly across its full box with no explicit background-size
+   needed — forcing one breaks the diagonal alignment. */
+.bg-mesh {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(18deg, transparent 0 140px, var(--accent) 140px 141px, transparent 141px 281px),
+    repeating-linear-gradient(-18deg, transparent 0 140px, var(--accent) 140px 141px, transparent 141px 281px);
+  opacity: 0.07;
+}
+
 a {
   color: var(--accent);
+}
+
+.skeleton-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+  animation: skeleton-shimmer 1.4s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }

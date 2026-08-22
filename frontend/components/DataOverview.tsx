@@ -5,6 +5,8 @@ import Link from "next/link";
 import { apiClient } from "../lib/api-client";
 import { logger } from "../lib/logger";
 import { formatCount, formatDateTime } from "../lib/format";
+import { Skeleton, SkeletonCard } from "./Skeleton";
+import ConfirmDialog from "./ConfirmDialog";
 
 type DiscoverStatus = {
   run_id: string;
@@ -75,6 +77,8 @@ export default function DataOverview() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [starting, setStarting] = useState(false);
   const [results, setResults] = useState<TableResult[] | null>(null);
+  const [resultsLoading, setResultsLoading] = useState(true);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const lastStep = useRef<string | null>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -95,7 +99,8 @@ export default function DataOverview() {
       .then((r) => setResults(r.tables))
       .catch(() => {
         // no discovery run yet — leave results empty, not an error state
-      });
+      })
+      .finally(() => setResultsLoading(false));
   }, []);
 
   useEffect(() => {
@@ -183,21 +188,34 @@ export default function DataOverview() {
       </div>
 
       <div style={styles.statsHeader}>
-        <StatCell label="tables" value={overview ? formatCount(overview.stats.table_count) : "…"} />
-        <StatCell label="columns" value={overview ? formatCount(overview.stats.column_count) : "…"} />
-        <StatCell label="rows" value={overview ? formatCount(overview.stats.row_count) : "…"} />
-        <StatCell
-          label="last run"
-          value={
-            overview?.last_run
-              ? `${overview.last_run.status}${overview.last_run.finished_at ? " · " + formatDateTime(overview.last_run.finished_at) : ""}`
-              : "never"
-          }
-        />
+        {overview ? (
+          <>
+            <StatCell label="tables" value={formatCount(overview.stats.table_count)} />
+            <StatCell label="columns" value={formatCount(overview.stats.column_count)} />
+            <StatCell label="rows" value={formatCount(overview.stats.row_count)} />
+            <StatCell
+              label="last run"
+              value={
+                overview.last_run
+                  ? `${overview.last_run.status}${overview.last_run.finished_at ? " · " + formatDateTime(overview.last_run.finished_at) : ""}`
+                  : "never"
+              }
+            />
+          </>
+        ) : (
+          [0, 1, 2, 3].map((i) => (
+            <div key={i} style={styles.statCell}>
+              <Skeleton width={i === 3 ? 130 : 50} height={16} />
+              <div style={{ marginTop: 4 }}>
+                <Skeleton width={60} height={10} />
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <button
-        onClick={handleRun}
+        onClick={() => setConfirmOpen(true)}
         disabled={starting || isRunning}
         style={{
           ...styles.button,
@@ -206,6 +224,18 @@ export default function DataOverview() {
       >
         {isRunning ? "running…" : starting ? "starting…" : "run discovery"}
       </button>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Run discovery?"
+        message="This scans the whole database and can take a while for large schemas. Only tables/columns that actually changed since the last run cost anything, but a first run or a big schema change can still take several minutes."
+        confirmLabel="run discovery"
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          handleRun();
+        }}
+      />
 
       {status && (
         <div style={styles.statusRow}>
@@ -255,7 +285,18 @@ export default function DataOverview() {
         </div>
       )}
 
-      {results && (
+      {resultsLoading && (
+        <div style={styles.tableGridSection}>
+          <div style={styles.sectionTitle}>discovered tables</div>
+          <div style={styles.tableGrid}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!resultsLoading && results && (
         <div style={styles.tableGridSection}>
           <div style={styles.sectionTitle}>discovered tables ({results.length})</div>
           <div style={styles.tableGrid}>
@@ -315,6 +356,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 2,
     padding: "16px 20px",
     marginBottom: 24,
+    background: "var(--bg)",
   },
   statCell: {
     display: "flex",
@@ -402,6 +444,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 32,
     border: "1px solid var(--border)",
     borderRadius: 2,
+    background: "var(--bg)",
   },
   panelTitle: {
     fontSize: 11,
@@ -443,6 +486,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "14px 16px",
     textDecoration: "none",
     color: "var(--text)",
+    background: "var(--bg)",
   },
   tableCardName: {
     fontSize: 13,

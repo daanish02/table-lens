@@ -28,6 +28,8 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "space-between",
     padding: "18px 24px",
     borderBottom: "1px solid var(--border)",
+    background: "var(--bg)",
+    position: "relative",
   },
   wordmark: {
     fontSize: 15,

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { apiClient } from "../lib/api-client";
 import { logger } from "../lib/logger";
 import { formatCount } from "../lib/format";
+import { Skeleton, SkeletonCard } from "./Skeleton";
 
 type BrowseResponse = {
   table: string;
@@ -48,6 +49,7 @@ export default function TableDetail({ table }: { table: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [columns, setColumns] = useState<ColumnResult[] | null>(null);
+  const [columnsLoading, setColumnsLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
@@ -63,10 +65,12 @@ export default function TableDetail({ table }: { table: string }) {
   }, [table, page]);
 
   useEffect(() => {
+    setColumnsLoading(true);
     apiClient
       .get<{ columns: ColumnResult[] }>(`/api/discover/results/${table}`)
       .then((r) => setColumns(r.columns))
-      .catch((err) => logger.error("failed to load column info", err));
+      .catch((err) => logger.error("failed to load column info", err))
+      .finally(() => setColumnsLoading(false));
   }, [table]);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total_rows / data.page_size)) : 1;
@@ -77,7 +81,29 @@ export default function TableDetail({ table }: { table: string }) {
       <h1 style={styles.title}>{table}</h1>
 
       {error && <div style={styles.errorBox}>{error}</div>}
-      {loading && !data && <div style={styles.dim}>loading…</div>}
+
+      {loading && !data && (
+        <>
+          <div style={{ marginBottom: 16 }}>
+            <Skeleton width={180} height={12} />
+          </div>
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <tbody>
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <tr key={i}>
+                    {Array.from({ length: 6 }).map((_, j) => (
+                      <td key={j} style={styles.td}>
+                        <Skeleton width={70 + ((i + j) % 3) * 20} height={10} />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {data && (
         <>
@@ -118,7 +144,18 @@ export default function TableDetail({ table }: { table: string }) {
         </>
       )}
 
-      {columns && (
+      {columnsLoading && (
+        <div style={styles.columnSection}>
+          <div style={styles.sectionTitle}>columns</div>
+          <div style={styles.columnGrid}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!columnsLoading && columns && (
         <div style={styles.columnSection}>
           <div style={styles.sectionTitle}>columns ({columns.length})</div>
           <div style={styles.columnGrid}>
@@ -239,6 +276,7 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "auto",
     maxWidth: "100%",
     maxHeight: "70vh",
+    background: "var(--bg)",
   },
   table: {
     borderCollapse: "collapse",
@@ -298,6 +336,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid var(--border)",
     borderRadius: 2,
     padding: "12px 14px",
+    background: "var(--bg)",
   },
   columnCardName: {
     fontSize: 13,

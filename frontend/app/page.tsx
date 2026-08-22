@@ -59,6 +59,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "18px 20px",
     textDecoration: "none",
     color: "var(--text)",
+    background: "var(--bg)",
   },
   cardDisabled: {
     opacity: 0.5,
