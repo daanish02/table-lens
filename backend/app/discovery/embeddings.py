@@ -3,6 +3,7 @@ from langchain_openai import OpenAIEmbeddings
 from sqlalchemy import text, Engine
 
 from app.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, EMBEDDING_MODEL
+from app.discovery import queries
 from app.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -32,24 +33,28 @@ def embed_and_store(
 
     with engine.connect() as conn:
         conn.execute(
-            text(
-                "INSERT INTO public.table_embeddings (table_name, description, embedding) "
-                "VALUES (:t, :d, :e) "
-                "ON CONFLICT (table_name) DO UPDATE SET description = :d, embedding = :e"
-            ),
+            text(queries.load("embeddings_upsert_table")),
             {"t": table_name, "d": table_description, "e": str(table_vec)},
         )
 
         for col_name, col_desc in column_descriptions.items():
             col_vec = embedder.embed_query(col_desc)
             conn.execute(
-                text(
-                    "INSERT INTO public.column_embeddings (table_name, column_name, description, embedding) "
-                    "VALUES (:t, :c, :d, :e) "
-                    "ON CONFLICT (table_name, column_name) DO UPDATE SET description = :d, embedding = :e"
-                ),
+                text(queries.load("embeddings_upsert_column")),
                 {"t": table_name, "c": col_name, "d": col_desc, "e": str(col_vec)},
             )
         conn.commit()
 
     log.info(f"embeddings written for {table_name}: {len(column_descriptions)} columns")
+
+
+def list_table_descriptions(engine: Engine) -> list[dict]:
+    with engine.connect() as conn:
+        rows = conn.execute(text(queries.load("embeddings_list_tables"))).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def get_column_descriptions(engine: Engine, table_name: str) -> list[dict]:
+    with engine.connect() as conn:
+        rows = conn.execute(text(queries.load("embeddings_list_columns")), {"t": table_name}).mappings().all()
+    return [dict(r) for r in rows]

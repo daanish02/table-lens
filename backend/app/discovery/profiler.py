@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import text, Engine
 
 from app.config import DISCOVERY_SAMPLE_PCT, DISCOVERY_LARGE_TABLE_ROWS, DISCOVERY_TOP_N_CATEGORICAL
+from app.discovery import queries
 from app.discovery.introspect import TableInfo
 from app.utils.logger import get_logger
 
@@ -31,7 +32,7 @@ def _source(schema: str, table: str, row_count: int) -> str:
 
 
 def _row_count(conn, schema: str, table: str) -> int:
-    return conn.execute(text(f"SELECT COUNT(*) FROM {schema}.{table}")).scalar()
+    return conn.execute(text(queries.load("profiler_row_count").format(schema=schema, table=table))).scalar()
 
 
 def profile_table(engine: Engine, schema: str, table: TableInfo) -> dict:
@@ -43,8 +44,7 @@ def profile_table(engine: Engine, schema: str, table: TableInfo) -> dict:
 
         for col in table.columns:
             null_rate, distinct_count = conn.execute(text(
-                f"SELECT AVG(CASE WHEN {col.name} IS NULL THEN 1.0 ELSE 0.0 END), "
-                f"COUNT(DISTINCT {col.name}) FROM {source}"
+                queries.load("profiler_null_distinct").format(column=col.name, source=source)
             )).first()
 
             profile = ColumnProfile(
@@ -55,10 +55,7 @@ def profile_table(engine: Engine, schema: str, table: TableInfo) -> dict:
 
             if col.data_type in NUMERIC_TYPES:
                 stats = conn.execute(text(
-                    f"SELECT MIN({col.name}), MAX({col.name}), AVG({col.name}), "
-                    f"PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {col.name}), "
-                    f"PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY {col.name}) "
-                    f"FROM {source}"
+                    queries.load("profiler_numeric_stats").format(column=col.name, source=source)
                 )).first()
                 profile.min_value, profile.max_value, mean, p50, p95 = stats
                 profile.mean_value = float(mean) if mean is not None else None
@@ -66,14 +63,14 @@ def profile_table(engine: Engine, schema: str, table: TableInfo) -> dict:
                 profile.p95 = float(p95) if p95 is not None else None
             elif col.data_type in DATE_TYPES:
                 min_v, max_v = conn.execute(text(
-                    f"SELECT MIN({col.name}), MAX({col.name}) FROM {source}"
+                    queries.load("profiler_date_range").format(column=col.name, source=source)
                 )).first()
                 profile.min_value, profile.max_value = min_v, max_v
             else:
                 rows = conn.execute(text(
-                    f"SELECT {col.name}, COUNT(*) c FROM {source} "
-                    f"WHERE {col.name} IS NOT NULL GROUP BY {col.name} "
-                    f"ORDER BY c DESC LIMIT {DISCOVERY_TOP_N_CATEGORICAL}"
+                    queries.load("profiler_top_values").format(
+                        column=col.name, source=source, limit=DISCOVERY_TOP_N_CATEGORICAL
+                    )
                 )).all()
                 profile.top_values = [(r[0], r[1]) for r in rows]
 

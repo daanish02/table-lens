@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from sqlalchemy import text, Engine
 
 from app.config import DISCOVERY_FK_OVERLAP_SAMPLE, DISCOVERY_FK_OVERLAP_THRESHOLD
+from app.discovery import queries
 from app.discovery.introspect import TableInfo
 from app.utils.logger import get_logger
 
@@ -57,15 +58,16 @@ def infer_relationships(engine: Engine, schema: str, tables: list[TableInfo]) ->
                 continue
 
             sample = conn.execute(text(
-                f"SELECT {from_col} FROM {schema}.{from_table} "
-                f"WHERE {from_col} IS NOT NULL ORDER BY random() "
-                f"LIMIT {DISCOVERY_FK_OVERLAP_SAMPLE}"
+                queries.load("relationships_sample_values").format(
+                    from_col=from_col, schema=schema, from_table=from_table,
+                    sample_size=DISCOVERY_FK_OVERLAP_SAMPLE,
+                )
             )).scalars().all()
             if not sample:
                 continue
 
             found = conn.execute(text(
-                f"SELECT COUNT(*) FROM {schema}.{target} WHERE {to_col} = ANY(:vals)"
+                queries.load("relationships_check_overlap").format(schema=schema, target=target, to_col=to_col)
             ), {"vals": list(sample)}).scalar()
 
             overlap_pct = found / len(sample)

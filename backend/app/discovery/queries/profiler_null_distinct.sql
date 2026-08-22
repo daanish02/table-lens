@@ -1,0 +1,2 @@
+SELECT AVG(CASE WHEN {column} IS NULL THEN 1.0 ELSE 0.0 END), COUNT(DISTINCT {column})
+FROM {source}

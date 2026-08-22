@@ -60,6 +60,10 @@ Profiles an unknown database once per connection. Sub-components:
   kept out of the code file so prompt wording can be edited without
   touching Python
 - `embeddings.py` — LangChain embeddings wrapper, routed through OpenRouter (same key/base_url as `llm.py`), writes to pgvector
+- `queries/` — SQL as plain `.sql` files, not inline in Python. Bind
+  parameters (`:name`) stay as-is; identifier placeholders (table/column
+  names, which SQL can't bind as parameters) use `{name}` and are filled
+  via `.format()` before execution
 
 Output is stored (not recomputed per query) and consumed by the query agent.
 Idempotent: schema-hash-checked re-runs, same pattern as the generator.
