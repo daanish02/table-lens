@@ -4,7 +4,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 
 from app.api.middleware import limiter
-from app.api.routes import discover_router
+from app.api.routes import discover_router, data_router
 from app.utils import get_logger
 
 log = get_logger(__name__)
@@ -19,6 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(discover_router)
+app.include_router(data_router)
 
 
 @app.get("/health")
