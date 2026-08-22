@@ -6,7 +6,7 @@ before being returned; on repeated failure, falls back to a plain
 table rather than shipping something broken to the frontend."""
 
 import json
-from app.query.llm import get_llm
+from app.visualize.llm import get_llm
 from app.visualize import prompts
 from app.visualize.chart_guard import validate_chart_spec, ChartValidationError
 from app.visualize.theme import get_palette
