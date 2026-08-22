@@ -11,6 +11,7 @@ dependencies = [
     "langchain>=0.3.0",
     "langchain-openai>=0.2.0",
     "slowapi>=0.1.9",
+    "pydantic>=2.9.0",
     "pydantic-settings>=2.6.0",
     "python-dotenv>=1.0.0",
     # generator (backend/app/generator/) deps — merged in, one venv for the whole backend

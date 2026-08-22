@@ -1,7 +1,7 @@
 from functools import lru_cache
 from langchain_openai import ChatOpenAI
 
-from app.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, LLM_MODEL, LLM_MAX_RETRIES
+from app.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, LLM_MODEL, LLM_MAX_RETRIES, LLM_MAX_TOKENS
 from app.discovery import prompts
 from app.discovery.introspect import TableInfo, ColumnInfo
 from app.utils.logger import get_logger
@@ -18,6 +18,7 @@ def _get_llm():
         api_key=OPENROUTER_API_KEY,
         base_url=OPENROUTER_BASE_URL,
         max_retries=LLM_MAX_RETRIES,
+        max_tokens=LLM_MAX_TOKENS,
         temperature=0,
     )
 

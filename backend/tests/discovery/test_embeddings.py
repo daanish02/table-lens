@@ -17,7 +17,9 @@ def test_embed_and_store_writes_table_and_column_rows():
     engine = get_engine()
     with patch("app.discovery.embeddings._get_embeddings") as mock_get_emb:
         mock_emb = MagicMock()
-        mock_emb.embed_query.return_value = [0.01] * 1536
+        # embed_and_store batches table + column descriptions into one
+        # embed_documents() call — return one vector per input text.
+        mock_emb.embed_documents.side_effect = lambda texts: [[0.01] * 768 for _ in texts]
         mock_get_emb.return_value = mock_emb
 
         embed_and_store(
