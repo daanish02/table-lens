@@ -425,6 +425,17 @@ function ChartCardView({
   onSave?: () => void;
 }) {
   const spec = card.spec;
+  const [copied, setCopied] = useState(false);
+
+  async function copySql() {
+    try {
+      await navigator.clipboard.writeText(card.sql);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      logger.error("copy failed", err);
+    }
+  }
 
   return (
     <div style={compact ? styles.chartCardCompact : styles.chartCard}>
@@ -446,6 +457,9 @@ function ChartCardView({
 
       <div style={styles.chartCardFooter}>
         <button style={styles.footerButton} onClick={onToggleSql}>{sqlExpanded ? "hide sql" : "view sql"}</button>
+        {sqlExpanded && (
+          <button style={styles.footerButton} onClick={copySql}>{copied ? "copied" : "copy"}</button>
+        )}
         {onSave && spec && (
           <button style={styles.footerButton} onClick={onSave} disabled={card.saving || !!card.savedId}>
             {card.savedId ? "saved" : card.saving ? "saving…" : "save chart"}
