@@ -20,7 +20,10 @@ export default function HomePage() {
 
         <div style={{ ...styles.card, ...styles.cardDisabled }}>
           <div style={styles.cardTitle}>Ask →</div>
-          <div style={styles.cardDesc}>Query your data in natural language. Coming soon.</div>
+          <div style={styles.cardDesc}>
+            Ask questions in plain English, get validated SQL, paginated results, and a
+            plain-English summary.
+          </div>
         </div>
       </div>
     </main>
