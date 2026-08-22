@@ -123,3 +123,17 @@ def test_leaves_layout_untouched_when_few_categories_no_rotation():
     result = validate_chart_spec(spec)
     assert result["option"]["legend"] == {"bottom": 0}
     assert "grid" not in result["option"]
+
+
+def test_strips_duplicate_option_title():
+    spec = {
+        "title": "Claims by Status",
+        "chart_type": "bar",
+        "option": {
+            "title": {"text": "Claims by Status"},
+            "series": [{"type": "bar", "data": [1, 2, 3]}],
+        },
+    }
+    result = validate_chart_spec(spec)
+    assert "title" not in result["option"]
+    assert result["title"] == "Claims by Status"

@@ -111,4 +111,8 @@ def validate_chart_spec(spec: dict) -> dict:
 
     _strip_js_function_strings(option)
     _normalize_layout(option)
+    option.pop("title", None)  # frontend renders spec["title"] as its own heading; a
+                                # duplicate ECharts title component wastes vertical space
+                                # and can overlap the plot when the chart is shown small
+                                # (e.g. a dashboard grid card).
     return spec
