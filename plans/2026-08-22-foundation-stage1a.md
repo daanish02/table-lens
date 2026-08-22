@@ -1958,7 +1958,7 @@ describe("logger", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd frontend && npm run test -- logger.test.ts`
+Run: `cd frontend && bun run test -- logger.test.ts`
 Expected: FAIL — `Cannot find module './logger'` (project not scaffolded yet)
 
 - [ ] **Step 3: Write minimal implementation**
@@ -2096,7 +2096,7 @@ export default function HomePage() {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd frontend && npm install && npm run test -- logger.test.ts`
+Run: `cd frontend && bun install && bun run test -- logger.test.ts`
 Expected: PASS (2 tests)
 
 - [ ] **Step 5: Commit**
@@ -2160,4 +2160,4 @@ git commit -m "docs: mark foundation + stage 1a complete in progress tracker"
 
 - **Spec coverage:** repo layout (Task 1, 13), LangChain-only LLM/embeddings (Task 9, 10), config convention (Task 2), generator relocation already done pre-plan and verified again in Task 1 Step 5, discovery pipeline steps 1-9 from the spec's Data Flow section (Tasks 6-11), pgvector schema (Task 4), demo/public schema split (Task 1, 4), logging (Task 2, 13), documentation-is-canon (Task 14 updates PROGRESS.md; HLD docs already written pre-plan), idempotency (Task 5, 11), rate limiting (Task 12), read-only DB enforcement (Task 3).
 - **Not covered by this plan, and correctly so per spec's Out of Scope:** Stage 1b query agent, frontend pages beyond scaffold, auth, deployment.
-- **Gap acknowledged:** `frontend/lib/logger.test.ts` assumes `vitest` is configured with no extra config file — if `npm run test` fails to discover the test, add a minimal `vitest.config.ts` re-exporting defaults before Task 13 Step 4.
+- **Gap acknowledged:** `frontend/lib/logger.test.ts` assumes `vitest` is configured with no extra config file — if `bun run test` fails to discover the test, add a minimal `vitest.config.ts` re-exporting defaults before Task 13 Step 4.

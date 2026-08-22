@@ -152,7 +152,7 @@ SUPABASE_ANON_KEY=
 - Frontend: Next.js 14 (App Router)
 - Charts: Apache ECharts or Plotly.js
 - Dashboard layout: react-grid-layout
-- Package manager: uv (Python), npm (frontend)
+- Package manager: uv (Python), bun (frontend)
 - Deployment target: Vercel (frontend) + Railway or Render (backend)
 
 ## Repo Layout
