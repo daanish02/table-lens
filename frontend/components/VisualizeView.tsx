@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { EChartsOption } from "echarts";
 import { apiClient } from "../lib/api-client";
 import { logger } from "../lib/logger";
 import { formatCount } from "../lib/format";
-import { pickChartType, buildEChartsOption, ChartType } from "../lib/charts";
 import EChart from "./EChart";
 
 type Mode = "single" | "dashboard";
@@ -37,13 +37,24 @@ type StreamEvent =
   | { type: "answer_delta"; text: string }
   | ({ type: "done" } & QueryResult);
 
+// Produced by the visualize agent (backend) — see app/visualize/agent.py.
+// chart_type is a string, not a fixed union: the backend validates it
+// against its own allowed set, the frontend just renders whatever comes
+// back rather than re-encoding that list a second time.
+type ChartSpec = {
+  title: string;
+  chart_type: string;
+  option: Record<string, unknown> | null;
+  error?: string;
+};
+
 type ChartCard = {
   localId: string;
   question: string;
   sql: string;
-  chartType: ChartType;
-  columns: string[];
-  rows: Record<string, unknown>[];
+  rows: Record<string, unknown>[]; // kept for the "stat" single-value display — the LLM's option is legitimately null for that type
+  spec: ChartSpec | null; // null while the visualize agent is still working
+  loadFailed: boolean;
   savedId: string | null;
   saving: boolean;
 };
@@ -116,14 +127,15 @@ export default function VisualizeView() {
   }, []);
 
   async function autoSaveChart(card: ChartCard) {
+    if (!card.spec) return;
     try {
       const res = await apiClient.post<{ id: string }>("/api/charts", {
-        title: card.question,
+        title: card.spec.title,
         question: card.question,
         sql: card.sql,
-        chart_type: card.chartType,
-        chart_config: buildEChartsOption(card.chartType, card.columns, card.rows) ?? {},
-        result_cache: { columns: card.columns, rows: card.rows },
+        chart_type: card.spec.chart_type,
+        chart_config: card.spec.option ?? {},
+        result_cache: {},
       });
       setCharts((prev) => prev.map((c) => (c.localId === card.localId ? { ...c, savedId: res.id, saving: false } : c)));
     } catch (err) {
@@ -149,6 +161,31 @@ export default function VisualizeView() {
       logger.error("save dashboard failed", err);
     } finally {
       setSavingDashboard(false);
+    }
+  }
+
+  // Query agent's finished result -> visualize agent, verbatim. The
+  // visualize agent never re-runs anything; it only decides how to
+  // present what's already here.
+  async function buildChart(localId: string, question: string, result: QueryResult) {
+    try {
+      const spec = await apiClient.post<ChartSpec>("/api/visualize", {
+        question,
+        sql: result.sql,
+        headline: result.headline,
+        columns: result.columns,
+        rows: result.rows,
+      });
+      setCharts((prev) => prev.map((c) => (c.localId === localId ? { ...c, spec } : c)));
+      if (mode === "dashboard") {
+        autoSaveChart({
+          localId, question, sql: result.sql as string, rows: result.rows as Record<string, unknown>[],
+          spec, loadFailed: false, savedId: null, saving: false,
+        });
+      }
+    } catch (err) {
+      logger.error("visualize agent failed", err);
+      setCharts((prev) => prev.map((c) => (c.localId === localId ? { ...c, loadFailed: true } : c)));
     }
   }
 
@@ -202,21 +239,19 @@ export default function VisualizeView() {
       setMessages((prev) => [...prev, { role: "assistant", content: answerText, elapsedMs: settled?.elapsed_ms, steps: stepsAcc }]);
 
       if (settled && settled.sql && settled.columns && settled.rows && settled.rows.length > 0) {
-        const chartType = pickChartType(settled.columns, settled.rows);
+        const localId = nextLocalId();
         const card: ChartCard = {
-          localId: nextLocalId(),
+          localId,
           question,
           sql: settled.sql,
-          chartType,
-          columns: settled.columns,
           rows: settled.rows,
+          spec: null,
+          loadFailed: false,
           savedId: null,
-          saving: mode === "dashboard",
+          saving: false,
         };
         setCharts((prev) => (mode === "single" ? [card] : [...prev, card]));
-        if (mode === "dashboard") {
-          autoSaveChart(card);
-        }
+        buildChart(localId, question, settled);
       }
     } catch (err) {
       logger.error("query failed", err);
@@ -389,25 +424,29 @@ function ChartCardView({
   onToggleSql: () => void;
   onSave?: () => void;
 }) {
-  const option = card.chartType === "stat" || card.chartType === "table" ? null : buildEChartsOption(card.chartType, card.columns, card.rows);
+  const spec = card.spec;
 
   return (
     <div style={compact ? styles.chartCardCompact : styles.chartCard}>
-      <div style={styles.chartCardTitle}>{card.question}</div>
+      <div style={styles.chartCardTitle}>{spec?.title ?? card.question}</div>
 
-      {option && <EChart option={option} height={compact ? 220 : 360} />}
+      {!spec && !card.loadFailed && <div style={styles.dim}>designing chart…</div>}
 
-      {card.chartType === "stat" && (
+      {card.loadFailed && <div style={styles.dim}>Couldn't build a chart for this — see SQL for the raw data.</div>}
+
+      {spec && spec.option && <EChart option={spec.option as EChartsOption} height={compact ? 220 : 360} />}
+
+      {spec && spec.chart_type === "stat" && card.rows[0] && (
         <div style={styles.statValue}>{formatCount(Number(Object.values(card.rows[0])[0]))}</div>
       )}
 
-      {(card.chartType === "table" || (!option && card.chartType !== "stat")) && (
-        <div style={styles.dim}>No clear chart shape for this result — {formatCount(card.rows.length)} rows, see SQL for the raw data.</div>
+      {spec && !spec.option && spec.chart_type !== "stat" && (
+        <div style={styles.dim}>No clear chart shape for this result — see SQL for the raw data.</div>
       )}
 
       <div style={styles.chartCardFooter}>
         <button style={styles.footerButton} onClick={onToggleSql}>{sqlExpanded ? "hide sql" : "view sql"}</button>
-        {onSave && (
+        {onSave && spec && (
           <button style={styles.footerButton} onClick={onSave} disabled={card.saving || !!card.savedId}>
             {card.savedId ? "saved" : card.saving ? "saving…" : "save chart"}
           </button>
