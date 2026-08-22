@@ -11,10 +11,10 @@
   --border: #d4d4d9;
   --border-strong: #b6b6bd;
   --text: #18181b;
-  --text-dim: #6b6b74;
-  --text-faint: #9a9aa2;
-  --accent: #067f74;
-  --accent-dim: rgba(6, 127, 116, 0.10);
+  --text-dim: #52525b;
+  --text-faint: #71717a;
+  --accent: #0d9488;
+  --accent-dim: rgba(13, 148, 136, 0.10);
   --error: #c53d42;
   --error-dim: rgba(197, 61, 66, 0.08);
   --shimmer: rgba(0, 0, 0, 0.05);

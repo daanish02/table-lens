@@ -9,10 +9,10 @@ __all__ = ["get_palette"]
 _PALETTES = {
     "light": {
         "text_color": "#18181b",
-        "dim_text_color": "#6b6b74",
+        "dim_text_color": "#52525b",
         "grid_color": "#d4d4d9",
-        "accent_color": "#067f74",
-        "series_palette": ["#067f74", "#c53d42", "#a3790a", "#6d54c9", "#2f6fb0", "#b8497a"],
+        "accent_color": "#0d9488",
+        "series_palette": ["#0d9488", "#c53d42", "#a3790a", "#6d54c9", "#2f6fb0", "#b8497a"],
     },
     "dark": {
         "text_color": "#e4e4e7",
