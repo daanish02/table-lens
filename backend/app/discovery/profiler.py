@@ -11,8 +11,8 @@ from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-NUMERIC_TYPES = {"integer", "bigint", "smallint", "numeric", "real", "double precision"}
-DATE_TYPES = {"date", "timestamp without time zone", "timestamp with time zone"}
+NUMERIC_TYPES = {"integer", "bigint", "smallint", "numeric", "real", "double precision", "money"}
+DATE_TYPES = {"date", "timestamp without time zone", "timestamp with time zone", "time without time zone", "time with time zone"}
 
 
 class ColumnProfile(BaseModel):

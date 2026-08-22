@@ -1,32 +1,23 @@
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from sqlalchemy import text
 
 from app.config import DEMO_SCHEMA, DISCOVERY_DESCRIBE_CONCURRENCY, DISCOVERY_PROFILE_CONCURRENCY
 from app.db.connection import get_engine
 from app.db.migrate import run_migrations
 from app.discovery.idempotency import (
-    schema_hash, should_skip, start_run, update_step, mark_done, mark_failed, get_status,
+    schema_hash, start_run, update_step, mark_done, mark_failed, get_status,
     set_progress_total, increment_tables_done,
 )
 from app.discovery.introspect import get_schema_snapshot, to_hashable
 from app.discovery.profiler import profile_table
 from app.discovery.relationships import infer_relationships
 from app.discovery.llm import describe_table, describe_column
-from app.discovery.embeddings import embed_and_store, is_table_described
+from app.discovery.embeddings import embed_and_store, is_table_described, get_column_hashes, refresh_profiles
+from app.discovery.signature import column_signature
 from app.utils.logger import get_logger
 
 log = get_logger(__name__)
-
-
-def _existing_run_id_for_hash(engine, hash_value: str) -> str | None:
-    with engine.connect() as conn:
-        row = conn.execute(
-            text("SELECT run_id FROM public.discovery_runs WHERE schema_hash = :h ORDER BY started_at DESC LIMIT 1"),
-            {"h": hash_value},
-        ).first()
-    return row[0] if row else None
 
 
 def _describe_column_safe(table_name: str, col, profile) -> tuple[str, str | None]:
@@ -39,45 +30,68 @@ def _describe_column_safe(table_name: str, col, profile) -> tuple[str, str | Non
         return col.name, None
 
 
-def _describe_and_embed_table(engine, run_id: str, schema: str, table, profiles: dict) -> None:
-    update_step(engine, run_id, f"describing:{table.name}")
-    table_desc = describe_table(table, profiles)
-
-    cols = [c for c in table.columns if c.name in profiles]
-    # Column descriptions are independent LLM calls — run them concurrently
-    # instead of one at a time. This is the dominant cost (thousands of
-    # columns across a wide schema); bounded width avoids hammering the
-    # provider with unlimited concurrent requests.
-    with ThreadPoolExecutor(max_workers=DISCOVERY_DESCRIBE_CONCURRENCY) as pool:
-        results = pool.map(lambda c: _describe_column_safe(table.name, c, profiles[c.name]), cols)
-    column_descs = {name: desc for name, desc in results if desc is not None}
-
-    failed = len(cols) - len(column_descs)
-    if failed:
-        log.error(f"{table.name}: {failed} of {len(cols)} columns failed to describe, skipping them")
-
-    update_step(engine, run_id, f"embedding:{table.name}")
+def _process_table(engine, run_id: str, schema: str, table, profiles: dict, all_table_names: list[str]) -> None:
     # Every column's profile.row_count is the same table-level value —
     # any one of them works.
     row_count = next(iter(profiles.values())).row_count if profiles else None
-    embed_and_store(engine, table.name, table_desc, column_descs, profiles=profiles, row_count=row_count)
+
+    stored_hashes = get_column_hashes(engine, table.name)
+    fresh_hashes = {c.name: column_signature(c, profiles[c.name]) for c in table.columns if c.name in profiles}
+    changed_cols = [c for c in table.columns if c.name in fresh_hashes and fresh_hashes[c.name] != stored_hashes.get(c.name)]
+
+    # Always refresh stats for every profiled column — cheap, DB-only, keeps
+    # /data's histograms/counts current every run regardless of whether any
+    # description actually changes below.
+    update_step(engine, run_id, f"refreshing:{table.name}")
+    refresh_profiles(engine, table.name, profiles, row_count, fresh_hashes)
+
+    if not changed_cols and is_table_described(engine, table.name):
+        # Nothing about this table changed since it was last (fully)
+        # described — skip the LLM/embedding calls entirely.
+        update_step(engine, run_id, f"table_done:{table.name}:{len(profiles)}")
+        increment_tables_done(engine, run_id)
+        return
+
+    update_step(engine, run_id, f"describing:{table.name}")
+    # A handful of sibling table names gives the LLM enough context to infer
+    # the database's domain — without this, an ambiguously-named table (e.g.
+    # "agents" in an insurance schema) tends to get a generic/wrong guess.
+    sibling_tables = sorted(n for n in all_table_names if n != table.name)[:15]
+    table_desc = describe_table(table, profiles, sibling_tables=sibling_tables)
+
+    # Column descriptions are independent LLM calls — run them concurrently
+    # instead of one at a time. Only columns whose content actually changed
+    # (or are brand new) get re-described; everything else keeps its prior
+    # description/embedding untouched.
+    with ThreadPoolExecutor(max_workers=DISCOVERY_DESCRIBE_CONCURRENCY) as pool:
+        results = pool.map(lambda c: _describe_column_safe(table.name, c, profiles[c.name]), changed_cols)
+    column_descs = {name: desc for name, desc in results if desc is not None}
+
+    failed = len(changed_cols) - len(column_descs)
+    if failed:
+        log.error(f"{table.name}: {failed} of {len(changed_cols)} changed columns failed to describe, skipping them")
+
+    update_step(engine, run_id, f"embedding:{table.name}")
+    embed_and_store(
+        engine, table.name, table_desc, column_descs,
+        profiles={n: profiles[n] for n in column_descs}, row_count=row_count,
+        column_count=len(profiles), content_hashes={n: fresh_hashes[n] for n in column_descs},
+    )
     # Distinct "done" marker (not just "embedding:X") so the frontend can
     # tell a table's work actually finished, and how many columns it got —
     # "embedding:X" alone doesn't say whether it's still in flight or done.
-    update_step(engine, run_id, f"table_done:{table.name}:{len(column_descs)}")
+    update_step(engine, run_id, f"table_done:{table.name}:{len(profiles)}")
     increment_tables_done(engine, run_id)
 
 
 def _run_pipeline(engine, run_id: str, schema: str, tables) -> None:
-    # Resume support: a table that already has an embedding entry was
-    # already finished by an earlier run (including one that later failed
-    # on a different table, e.g. hit a rate/credit limit) — skip it rather
-    # than redoing already-paid-for LLM + embedding calls.
-    remaining = [t for t in tables if not is_table_described(engine, t.name)]
-    skipped = len(tables) - len(remaining)
-    set_progress_total(engine, run_id, total=len(tables), done_already=skipped)
-    if skipped:
-        log.info(f"resuming: {skipped} tables already described, {len(remaining)} remaining")
+    # Every table is always (re-)profiled — profiling is DB-bound and cheap
+    # after the batched-query rewrite, and it's the only way to know whether
+    # a table's columns actually changed. What's expensive (LLM + embedding
+    # calls) is gated per-column inside _process_table via content_hash, not
+    # by skipping whole tables here.
+    remaining = tables
+    set_progress_total(engine, run_id, total=len(tables), done_already=0)
 
     def _profile_one(t):
         try:
@@ -119,10 +133,11 @@ def _run_pipeline(engine, run_id: str, schema: str, tables) -> None:
     # single run makes maximum forward progress. Only mark_failed if
     # something is genuinely still incomplete at the end; resume then
     # retries just the failures, not everything.
+    all_table_names = [t.name for t in tables]
     table_failures: list[str] = list(profile_failed)
     for table in remaining:
         try:
-            _describe_and_embed_table(engine, run_id, schema, table, profiles_by_table[table.name])
+            _process_table(engine, run_id, schema, table, profiles_by_table[table.name], all_table_names)
         except Exception as e:
             log.error(f"table {table.name} failed: {e}")
             table_failures.append(table.name)
@@ -134,16 +149,16 @@ def _run_pipeline(engine, run_id: str, schema: str, tables) -> None:
 
 
 def run_discovery(db_url: str = "", schema: str = DEMO_SCHEMA, background: bool = False) -> str:
+    # No whole-run short-circuit: every run always executes, since the
+    # per-column content_hash check in _process_table is what actually
+    # decides whether LLM/embedding cost is paid (schema_hash is still
+    # recorded on the run for visibility, just doesn't gate execution
+    # anymore — see docs/PRD.md, discovery re-run caching).
     engine = get_engine()
     run_migrations(engine)
 
     tables = get_schema_snapshot(engine, schema)
     hash_value = schema_hash(to_hashable(tables))
-
-    if should_skip(engine, hash_value):
-        run_id = _existing_run_id_for_hash(engine, hash_value)
-        log.info(f"discovery skipped for {schema}, reusing run {run_id}")
-        return run_id
 
     run_id = str(uuid.uuid4())
     start_run(engine, run_id, hash_value)

@@ -23,7 +23,7 @@ def _get_llm():
     )
 
 
-def describe_table(table: TableInfo, profiles: dict) -> str:
+def describe_table(table: TableInfo, profiles: dict, sibling_tables: list[str] | None = None) -> str:
     col_summary = ", ".join(
         f"{c.name} ({c.data_type}, null_rate={profiles[c.name].null_rate:.2f})"
         for c in table.columns if c.name in profiles
@@ -31,6 +31,7 @@ def describe_table(table: TableInfo, profiles: dict) -> str:
     prompt = prompts.load("table_description").format(
         table_name=table.name,
         columns=col_summary,
+        sibling_tables=", ".join(sibling_tables or []),
     )
     log.info(f"describing table: {table.name}")
     response = _get_llm().invoke(prompt)

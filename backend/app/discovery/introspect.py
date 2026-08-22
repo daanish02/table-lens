@@ -59,6 +59,6 @@ def get_schema_snapshot(engine: Engine, schema: str) -> list[TableInfo]:
 
 def to_hashable(tables: list[TableInfo]) -> list[dict]:
     return [
-        {"table": t.name, "columns": sorted(c.name for c in t.columns)}
+        {"table": t.name, "columns": sorted((c.name, c.data_type) for c in t.columns)}
         for t in tables
     ]

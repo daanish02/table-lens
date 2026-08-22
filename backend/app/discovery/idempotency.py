@@ -22,13 +22,6 @@ def ensure_runs_table(engine: Engine) -> None:
         conn.commit()
 
 
-def should_skip(engine: Engine, hash_value: str) -> bool:
-    ensure_runs_table(engine)
-    with engine.connect() as conn:
-        row = conn.execute(text(queries.load("idempotency_should_skip")), {"h": hash_value}).first()
-    return row is not None
-
-
 def start_run(engine: Engine, run_id: str, hash_value: str) -> None:
     ensure_runs_table(engine)
     with engine.connect() as conn:
