@@ -9,6 +9,7 @@ requires_full_stack = pytest.mark.skipif(
 )
 
 
+@pytest.mark.slow
 @requires_full_stack
 def test_run_discovery_completes_and_reports_status():
     run_id = run_discovery(os.environ["SUPABASE_DB_URL"], schema="demo")
@@ -16,6 +17,7 @@ def test_run_discovery_completes_and_reports_status():
     assert status["status"] in {"running", "done"}
 
 
+@pytest.mark.slow
 @requires_full_stack
 def test_run_discovery_skips_unchanged_schema():
     first_run_id = run_discovery(os.environ["SUPABASE_DB_URL"], schema="demo")

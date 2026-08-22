@@ -31,3 +31,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m 'not slow'"
+markers = [
+    "slow: real end-to-end test (live LLM/embedding calls across every loaded table+column) — run explicitly with `pytest -m slow`, not part of the default run",
+]
