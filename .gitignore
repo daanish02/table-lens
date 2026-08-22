@@ -15,6 +15,9 @@ backend/app/generator/manifest.json
 # Backend log files
 backend/logs/
 
+# start.ps1 / stop.ps1 runtime logs + pidfiles
+.run/
+
 # Node / Next.js
 node_modules/
 .next/

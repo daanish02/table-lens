@@ -10,7 +10,7 @@ _PALETTES = {
     "light": {
         "text_color": "#18181b",
         "dim_text_color": "#6b6b74",
-        "grid_color": "#e2e2e6",
+        "grid_color": "#d4d4d9",
         "accent_color": "#067f74",
         "series_palette": ["#067f74", "#c53d42", "#a3790a", "#6d54c9", "#2f6fb0", "#b8497a"],
     },
