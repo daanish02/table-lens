@@ -3,7 +3,7 @@ from langchain_openai import ChatOpenAI
 
 from app.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, LLM_MODEL, LLM_MAX_RETRIES
 from app.discovery.introspect import TableInfo, ColumnInfo
-from app.logging.logger import get_logger
+from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -33,7 +33,7 @@ def describe_table(table: TableInfo, profiles: dict) -> str:
         f"Write 1-3 sentences: what this table is for, when to use it, and any "
         f"gotcha (e.g. null behavior, denormalization) an analyst should know."
     )
-    log.info("llm.describe_table", table=table.name)
+    log.info(f"describing table: {table.name}")
     response = _get_llm().invoke(prompt)
     return response.content
 
@@ -52,6 +52,6 @@ def describe_column(table_name: str, column: ColumnInfo, profile) -> str:
         f"Write 1 sentence: what this column represents, when to use it, and any "
         f"gotcha (nulls, encoding) an analyst should know."
     )
-    log.info("llm.describe_column", table=table_name, column=column.name)
+    log.info(f"describing column: {table_name}.{column.name}")
     response = _get_llm().invoke(prompt)
     return response.content

@@ -3,7 +3,7 @@ from langchain_openai import OpenAIEmbeddings
 from sqlalchemy import text, Engine
 
 from app.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, EMBEDDING_MODEL
-from app.logging.logger import get_logger
+from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -28,7 +28,7 @@ def embed_and_store(
     embedder = _get_embeddings()
 
     table_vec = embedder.embed_query(table_description)
-    log.info("embeddings.table", table=table_name)
+    log.info(f"embedding table description: {table_name}")
 
     with engine.connect() as conn:
         conn.execute(
@@ -52,4 +52,4 @@ def embed_and_store(
             )
         conn.commit()
 
-    log.info("embeddings.done", table=table_name, columns=len(column_descriptions))
+    log.info(f"embeddings written for {table_name}: {len(column_descriptions)} columns")

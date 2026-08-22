@@ -3,7 +3,7 @@ from sqlalchemy import text, Engine
 
 from app.config import DISCOVERY_FK_OVERLAP_SAMPLE, DISCOVERY_FK_OVERLAP_THRESHOLD
 from app.discovery.introspect import TableInfo
-from app.logging.logger import get_logger
+from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -40,7 +40,7 @@ def _target_table_guess(column_name: str, tables: list[TableInfo]) -> str | None
 
 
 def infer_relationships(engine: Engine, schema: str, tables: list[TableInfo]) -> list[InferredRelationship]:
-    log.info("relationships.start", schema=schema)
+    log.info(f"inferring relationships for schema: {schema}")
     results = []
     table_names = {t.name for t in tables}
     pk_by_table = {
@@ -76,5 +76,5 @@ def infer_relationships(engine: Engine, schema: str, tables: list[TableInfo]) ->
                     overlap_pct=overlap_pct,
                 ))
 
-    log.info("relationships.done", schema=schema, found=len(results))
+    log.info(f"relationships inferred for {schema}: {len(results)} found")
     return results

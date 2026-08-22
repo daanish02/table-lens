@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from sqlalchemy import text, Engine
 
-from app.logging.logger import get_logger
+from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -57,7 +57,7 @@ ORDER BY table_name
 
 
 def get_schema_snapshot(engine: Engine, schema: str) -> list[TableInfo]:
-    log.info("introspect.start", schema=schema)
+    log.info(f"introspecting schema: {schema}")
     with engine.connect() as conn:
         table_names = [r[0] for r in conn.execute(text(_TABLES_SQL), {"schema": schema})]
 
@@ -81,7 +81,7 @@ def get_schema_snapshot(engine: Engine, schema: str) -> list[TableInfo]:
                 ))
             tables.append(TableInfo(name=table_name, columns=columns))
 
-    log.info("introspect.done", schema=schema, table_count=len(tables))
+    log.info(f"introspected schema {schema}: {len(tables)} tables")
     return tables
 
 

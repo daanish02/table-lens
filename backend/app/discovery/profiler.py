@@ -3,7 +3,7 @@ from sqlalchemy import text, Engine
 
 from app.config import DISCOVERY_SAMPLE_PCT, DISCOVERY_LARGE_TABLE_ROWS, DISCOVERY_TOP_N_CATEGORICAL
 from app.discovery.introspect import TableInfo
-from app.logging.logger import get_logger
+from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -35,7 +35,7 @@ def _row_count(conn, schema: str, table: str) -> int:
 
 
 def profile_table(engine: Engine, schema: str, table: TableInfo) -> dict:
-    log.info("profile.start", table=table.name)
+    log.info(f"profiling table: {table.name}")
     profiles: dict[str, ColumnProfile] = {}
     with engine.connect() as conn:
         row_count = _row_count(conn, schema, table.name)
@@ -79,5 +79,5 @@ def profile_table(engine: Engine, schema: str, table: TableInfo) -> dict:
 
             profiles[col.name] = profile
 
-    log.info("profile.done", table=table.name, columns=len(profiles))
+    log.info(f"profiled table {table.name}: {len(profiles)} columns")
     return profiles

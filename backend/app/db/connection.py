@@ -3,7 +3,7 @@ from functools import lru_cache
 from sqlalchemy import create_engine, Engine
 
 from app.config import DB_URL
-from app.logging.logger import get_logger
+from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -25,5 +25,5 @@ def get_engine(readonly: bool = False) -> Engine:
     url = READONLY_DB_URL if readonly else DB_URL
     if not url:
         raise RuntimeError("SUPABASE_DB_URL is not set")
-    log.info("db.engine.create", readonly=readonly)
+    log.info(f"creating DB engine (readonly={readonly})")
     return create_engine(_normalize(url), pool_pre_ping=True)

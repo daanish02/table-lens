@@ -4,7 +4,7 @@ from slowapi import _rate_limit_exceeded_handler
 
 from app.api.middleware.rate_limit import limiter
 from app.api.routes.discover import router as discover_router
-from app.logging.logger import get_logger
+from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 

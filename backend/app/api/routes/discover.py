@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from app.discovery.orchestrator import run_discovery, get_discovery_status
 from app.api.middleware.rate_limit import limiter
-from app.logging.logger import get_logger
+from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 router = APIRouter(prefix="/api/discover", tags=["discover"])
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/discover", tags=["discover"])
 @limiter.limit("20/minute")
 def discover(request: Request, body: dict):
     db_url = body["db_url"]
-    log.info("api.discover.request", db_url_present=bool(db_url))
+    log.info(f"discover request received (db_url present={bool(db_url)})")
     run_id = run_discovery(db_url)
     return {"run_id": run_id}
 

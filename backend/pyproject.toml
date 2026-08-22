@@ -10,7 +10,6 @@ dependencies = [
     "pgvector>=0.3.0",
     "langchain>=0.3.0",
     "langchain-openai>=0.2.0",
-    "structlog>=24.4.0",
     "slowapi>=0.1.9",
     "pydantic-settings>=2.6.0",
     "python-dotenv>=1.0.0",

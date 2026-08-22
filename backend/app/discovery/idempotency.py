@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import text, Engine
 
-from app.logging.logger import get_logger
+from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -57,7 +57,7 @@ def start_run(engine: Engine, run_id: str, hash_value: str) -> None:
             {"id": run_id, "h": hash_value},
         )
         conn.commit()
-    log.info("discovery.run.start", run_id=run_id, schema_hash=hash_value)
+    log.info(f"discovery run started: run_id={run_id} schema_hash={hash_value}")
 
 
 def update_step(engine: Engine, run_id: str, step: str) -> None:
@@ -67,7 +67,7 @@ def update_step(engine: Engine, run_id: str, step: str) -> None:
             {"step": step, "id": run_id},
         )
         conn.commit()
-    log.info("discovery.run.step", run_id=run_id, step=step)
+    log.info(f"discovery run {run_id} step: {step}")
 
 
 def mark_done(engine: Engine, run_id: str) -> None:
@@ -80,7 +80,7 @@ def mark_done(engine: Engine, run_id: str) -> None:
             {"now": datetime.now(timezone.utc), "id": run_id},
         )
         conn.commit()
-    log.info("discovery.run.done", run_id=run_id)
+    log.info(f"discovery run done: {run_id}")
 
 
 def mark_failed(engine: Engine, run_id: str, error: str) -> None:
@@ -93,7 +93,7 @@ def mark_failed(engine: Engine, run_id: str, error: str) -> None:
             {"err": error, "now": datetime.now(timezone.utc), "id": run_id},
         )
         conn.commit()
-    log.info("discovery.run.failed", run_id=run_id, error=error)
+    log.info(f"discovery run failed: {run_id} - {error}")
 
 
 def get_status(engine: Engine, run_id: str) -> dict | None:

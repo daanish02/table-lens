@@ -10,7 +10,7 @@ from app.discovery.profiler import profile_table
 from app.discovery.relationships import infer_relationships
 from app.discovery.llm import describe_table, describe_column
 from app.discovery.embeddings import embed_and_store
-from app.logging.logger import get_logger
+from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -33,7 +33,7 @@ def run_discovery(db_url: str, schema: str = DEMO_SCHEMA) -> str:
 
     if should_skip(engine, hash_value):
         run_id = _existing_run_id_for_hash(engine, hash_value)
-        log.info("discovery.skipped", schema=schema, run_id=run_id)
+        log.info(f"discovery skipped for {schema}, reusing run {run_id}")
         return run_id
 
     run_id = str(uuid.uuid4())
