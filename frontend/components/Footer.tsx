@@ -23,7 +23,7 @@ export default function Footer() {
           window.location.href = `mailto:${getAuthorEmail()}`;
         }}
       >
-        email
+        contact me here
       </a>
     </footer>
   );
