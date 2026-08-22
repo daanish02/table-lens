@@ -447,7 +447,7 @@ function ChartCardView({
 
       {card.loadFailed && <div style={styles.dim}>Couldn't build a chart for this — see SQL for the raw data.</div>}
 
-      {spec && spec.option && <EChart option={spec.option as EChartsOption} height={compact ? 220 : 360} />}
+      {spec && spec.option && <EChart option={spec.option as EChartsOption} height={compact ? 260 : 360} />}
 
       {spec && spec.chart_type === "stat" && card.rows[0] && (
         <div style={styles.statValue}>{formatCount(Number(Object.values(card.rows[0])[0]))}</div>

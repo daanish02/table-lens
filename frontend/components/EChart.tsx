@@ -25,8 +25,13 @@ export default function EChart({ option, height = 280 }: { option: EChartsOption
   }, []);
 
   useEffect(() => {
+    // Re-setting (not just resizing) whenever height changes forces ECharts
+    // to fully recompute layout from scratch — a plain .resize() on a chart
+    // with rotated/crowded axis labels can garble them on a big incremental
+    // shrink (e.g. switching from the 360px single view to a 220px
+    // dashboard card) instead of laying them out cleanly for the new size.
     chartRef.current?.setOption(option, true);
-  }, [option]);
+  }, [option, height]);
 
   return <div ref={containerRef} style={{ width: "100%", height }} />;
 }
