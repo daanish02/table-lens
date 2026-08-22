@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text, Engine
 
 from app.config import DISCOVERY_FK_OVERLAP_SAMPLE, DISCOVERY_FK_OVERLAP_THRESHOLD
@@ -9,8 +9,9 @@ from app.utils.logger import get_logger
 log = get_logger(__name__)
 
 
-@dataclass
-class InferredRelationship:
+class InferredRelationship(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     from_table: str
     from_column: str
     to_table: str

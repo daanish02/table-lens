@@ -1,5 +1,5 @@
 from collections import defaultdict
-from dataclasses import dataclass
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text, Engine
 
 from app.discovery import queries
@@ -8,8 +8,9 @@ from app.utils.logger import get_logger
 log = get_logger(__name__)
 
 
-@dataclass
-class ColumnInfo:
+class ColumnInfo(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     name: str
     data_type: str
     is_pk: bool
@@ -18,8 +19,9 @@ class ColumnInfo:
     fk_column: str | None
 
 
-@dataclass
-class TableInfo:
+class TableInfo(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     name: str
     columns: list[ColumnInfo]
 

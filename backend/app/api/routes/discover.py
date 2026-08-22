@@ -1,10 +1,14 @@
+"""Discovery agent HTTP routes: trigger a run, poll its status, read back
+results."""
+
 from fastapi import APIRouter, HTTPException, Request
 
-from app.db.connection import get_engine
-from app.discovery.orchestrator import run_discovery, get_discovery_status
-from app.discovery.embeddings import list_table_descriptions, get_column_descriptions
-from app.api.middleware.rate_limit import limiter
-from app.utils.logger import get_logger
+from app.db import get_engine
+from app.discovery import run_discovery, get_discovery_status, list_table_descriptions, get_column_descriptions
+from app.api.middleware import limiter
+from app.utils import get_logger
+
+__all__ = ["router"]
 
 log = get_logger(__name__)
 router = APIRouter(prefix="/api/discover", tags=["discover"])

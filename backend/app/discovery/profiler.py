@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from pydantic import BaseModel, Field
 from sqlalchemy import text, Engine
 
 from app.config import DISCOVERY_SAMPLE_PCT, DISCOVERY_LARGE_TABLE_ROWS, DISCOVERY_TOP_N_CATEGORICAL
@@ -12,8 +12,9 @@ NUMERIC_TYPES = {"integer", "bigint", "smallint", "numeric", "real", "double pre
 DATE_TYPES = {"date", "timestamp without time zone", "timestamp with time zone"}
 
 
-@dataclass
-class ColumnProfile:
+class ColumnProfile(BaseModel):
+    # Not frozen — fields below are filled in progressively after
+    # construction as different stats queries complete (see profile_table).
     row_count: int
     null_rate: float
     distinct_count: int
@@ -22,7 +23,7 @@ class ColumnProfile:
     mean_value: float | None = None
     p50: float | None = None
     p95: float | None = None
-    top_values: list[tuple] = field(default_factory=list)
+    top_values: list[tuple] = Field(default_factory=list)
 
 
 def _source(schema: str, table: str, row_count: int) -> str:

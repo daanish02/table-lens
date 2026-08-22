@@ -1,12 +1,17 @@
+"""Stdlib logging setup shared by every backend component. JSON-free,
+plain readable lines: timestamp | level | module:func | message."""
+
 import logging
 import logging.handlers
 import sys
 from pathlib import Path
 
+__all__ = ["get_logger"]
+
 LOG_DIR = Path(__file__).parents[2] / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-_FORMAT = "%(asctime)s %(levelname)-8s %(name)s:%(funcName)s:%(lineno)d - %(message)s"
+_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s | %(message)s"
 _formatter = logging.Formatter(_FORMAT)
 
 _stream_handler = logging.StreamHandler(sys.stdout)
