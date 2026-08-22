@@ -1,0 +1,32 @@
+:root {
+  --bg: #0a0a0b;
+  --surface: #111113;
+  --surface-hover: #16161a;
+  --border: #26262b;
+  --border-strong: #3a3a41;
+  --text: #e4e4e7;
+  --text-dim: #8b8b93;
+  --text-faint: #55555c;
+  --accent: #35c9be;
+  --accent-dim: rgba(53, 201, 190, 0.12);
+  --error: #e5484d;
+  --error-dim: rgba(229, 72, 77, 0.12);
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+a {
+  color: var(--accent);
+}
