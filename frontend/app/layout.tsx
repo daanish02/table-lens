@@ -6,7 +6,7 @@ import Footer from "../components/Footer";
 const inter = Inter({ subsets: ["latin"], variable: "--sans-loaded", display: "swap" });
 
 export const metadata = {
-  title: "Table Lens",
+  title: { default: "Table Lens", template: "%s | Table Lens" },
   description: "AI-native conversational BI",
 };
 
