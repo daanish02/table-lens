@@ -2,7 +2,7 @@ from functools import lru_cache
 from langchain_openai import OpenAIEmbeddings
 from sqlalchemy import text, Engine
 
-from app.config import EMBEDDING_MODEL
+from app.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, EMBEDDING_MODEL
 from app.logging.logger import get_logger
 
 log = get_logger(__name__)
@@ -10,7 +10,13 @@ log = get_logger(__name__)
 
 @lru_cache
 def _get_embeddings():
-    return OpenAIEmbeddings(model=EMBEDDING_MODEL)
+    # OpenRouter also exposes an embeddings route via its OpenAI-compatible
+    # endpoint — same key/base_url as the LLM, no separate provider needed.
+    return OpenAIEmbeddings(
+        model=EMBEDDING_MODEL,
+        api_key=OPENROUTER_API_KEY,
+        base_url=OPENROUTER_BASE_URL,
+    )
 
 
 def embed_and_store(

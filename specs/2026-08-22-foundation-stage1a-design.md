@@ -60,12 +60,13 @@ lives in `docs/PRD.md` (written as part of this spec).
    already decided. Not built out in this spec — scaffold only, since no UI
    work happens until Stage 2.
 
-3. **LLM access via LangChain, routed through OpenRouter — not a hardcoded
-   provider SDK call.** Discovery's description generation uses LangChain's
-   OpenAI-compatible chat client pointed at OpenRouter's endpoint (model is a
-   `config.py` string, e.g. `anthropic/claude-sonnet-4.6`) — swapping model
-   or provider is a config change, not a code change. Embeddings go direct
-   to OpenAI via LangChain (OpenRouter has no embeddings endpoint).
+3. **LLM and embeddings access via LangChain, both routed through
+   OpenRouter — not a hardcoded provider SDK call.** Discovery's description
+   generation and embeddings both use LangChain's OpenAI-compatible client
+   pointed at OpenRouter's endpoint (model is a `config.py` string, e.g.
+   `anthropic/claude-sonnet-4.6` for chat, `openai/text-embedding-3-small`
+   for embeddings) — swapping model or provider is a config change, not a
+   code change. One API key for both.
 
 4. **Config convention (applies backend-wide, not just generator):**
    - Cross-cutting tunables that matter project-wide → `config.py` (or

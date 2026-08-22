@@ -129,18 +129,18 @@ RBAC, organizations, multi-tenant, audit logs, link expiry. Not scheduled.
    role.
 5. **Idempotency everywhere** — discovery re-runs check schema hash before
    re-profiling. Same pattern as the data generator.
-6. **LLM access via LangChain, routed through OpenRouter** (its
-   OpenAI-compatible endpoint), never a hardcoded provider SDK call — model
-   is a config-level swap, not a code change. Embeddings go direct to OpenAI
-   (OpenRouter has no embeddings endpoint).
+6. **LLM and embeddings access via LangChain, both routed through
+   OpenRouter** (its OpenAI-compatible endpoint), never a hardcoded provider
+   SDK call — model is a config-level swap, not a code change. One API key
+   for both.
 7. **Showcase deployment = no auth.** Single shared instance. Rate limiting
    only.
 
 ## Environment Variables Needed
 ```
-OPENROUTER_API_KEY=          # LLM access via LangChain's OpenAI-compatible client, model is a config swap
-OPENAI_API_KEY=               # embeddings (text-embedding-3-small) — OpenRouter has no embeddings endpoint
+OPENROUTER_API_KEY=          # LLM + embeddings, via LangChain's OpenAI-compatible client, model is a config swap
 SUPABASE_DB_URL=postgres://...
+SUPABASE_DB_URL_READONLY=     # dedicated read-only role, used for discovery/query access
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_ANON_KEY=
 ```

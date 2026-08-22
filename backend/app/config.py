@@ -19,14 +19,13 @@ DISCOVERY_FK_OVERLAP_SAMPLE = 1000     # rows sampled for FK-overlap inference
 DISCOVERY_FK_OVERLAP_THRESHOLD = 0.90  # % overlap required to infer a relationship
 
 # ── LLM / embeddings (LangChain — provider is a config swap, never hardcoded) ─
-# LLM goes through OpenRouter's OpenAI-compatible endpoint; embeddings go
-# direct to OpenAI (OpenRouter has no embeddings endpoint).
+# Both LLM and embeddings go through OpenRouter's OpenAI-compatible endpoint —
+# one API key, one base URL, model is just a string swap.
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-LLM_MODEL = "anthropic/claude-sonnet-4.6"   # OpenRouter model slug
+LLM_MODEL = "anthropic/claude-sonnet-4.6"           # OpenRouter model slug
 LLM_MAX_RETRIES = 3
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_MODEL = "openai/text-embedding-3-small"   # OpenRouter model slug
 EMBEDDING_DIM = 1536
 
 # ── API ───────────────────────────────────────────────────────────────────

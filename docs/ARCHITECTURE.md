@@ -55,7 +55,7 @@ Profiles an unknown database once per connection. Sub-components:
 - relationship inference (name pattern + value-overlap sampling)
 - `llm.py` — LangChain LLM wrapper, routed through OpenRouter (model is a
   config swap, never hardcoded)
-- `embeddings.py` — LangChain embeddings wrapper, writes to pgvector
+- `embeddings.py` — LangChain embeddings wrapper, routed through OpenRouter (same key/base_url as `llm.py`), writes to pgvector
 
 Output is stored (not recomputed per query) and consumed by the query agent.
 Idempotent: schema-hash-checked re-runs, same pattern as the generator.
