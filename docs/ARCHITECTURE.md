@@ -77,9 +77,13 @@ FastAPI route layer. Thin — delegates to `discovery/` and `query/`. Rate
 limiting (IP-based, 20 req/min) applied here.
 
 ### `backend/app/logging/`
-Structured logging (structlog), shared config used by every backend
-component — generator, discovery, query, api. JSON output, one place to
-change format/level rather than per-module `print`/ad-hoc logging calls.
+Structured logging (structlog over stdlib logging), shared config used by
+every backend component — generator, discovery, query, api. JSON output to
+both stdout and a rotating file (`backend/logs/app.log`, not committed) —
+one place to change format/level rather than per-module `print`/ad-hoc
+logging calls. Frontend logging stays console-only (`frontend/lib/logger.ts`)
+since browser JS has no filesystem access — there is no frontend equivalent
+of `backend/logs/`.
 
 ### `frontend/`
 Next.js 14, App Router. Split-screen chat + visualization UI. SSR chosen

@@ -12,6 +12,9 @@ __pycache__/
 backend/app/generator/output/
 backend/app/generator/manifest.json
 
+# Backend log files
+backend/logs/
+
 # Node / Next.js
 node_modules/
 .next/

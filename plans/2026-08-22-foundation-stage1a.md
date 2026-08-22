@@ -297,20 +297,18 @@ git commit -m "feat(generator): schema-qualify DDL and loader for demo schema"
 
 ```python
 # backend/tests/test_logger.py
-import json
 import logging
 
 from app.logging.logger import get_logger
 
 
-def test_get_logger_returns_bound_logger_with_json_output(capsys):
+def test_get_logger_emits_structured_event_with_bound_context(caplog):
     logger = get_logger("test.module")
-    logger.info("hello", key="value")
-    captured = capsys.readouterr()
-    payload = json.loads(captured.out.strip().splitlines()[-1])
-    assert payload["event"] == "hello"
-    assert payload["key"] == "value"
-    assert payload["logger"] == "test.module"
+    with caplog.at_level(logging.INFO):
+        logger.info("hello", key="value")
+    assert "hello" in caplog.text
+    assert "test.module" in caplog.text
+    assert "value" in caplog.text
 
 
 def test_get_logger_is_cached_per_name():
@@ -318,6 +316,12 @@ def test_get_logger_is_cached_per_name():
     b = get_logger("same.name")
     assert a is b
 ```
+
+Note: `caplog`, not `capsys` — once logging routes through stdlib `logging`
+handlers (needed for the file handler below), a `logging.StreamHandler`
+bound to `sys.stdout` at import time doesn't reliably interact with
+per-test `capsys` stdout substitution. `caplog` captures at the `logging`
+layer directly and is the correct tool here regardless of handler wiring.
 
 ```python
 # backend/tests/conftest.py
@@ -418,17 +422,38 @@ RATE_LIMIT = "20/minute"
 
 ```python
 # backend/app/logging/logger.py
+import logging
+import logging.handlers
 import sys
-import structlog
+from pathlib import Path
 from functools import lru_cache
+
+import structlog
+
+LOG_DIR = Path(__file__).parents[2] / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
+_stream_handler = logging.StreamHandler(sys.stdout)
+_file_handler = logging.handlers.RotatingFileHandler(
+    LOG_DIR / "app.log", maxBytes=10_000_000, backupCount=5
+)
+
+_formatter = structlog.stdlib.ProcessorFormatter(processor=structlog.processors.JSONRenderer())
+_stream_handler.setFormatter(_formatter)
+_file_handler.setFormatter(_formatter)
+
+_root_logger = logging.getLogger()
+_root_logger.setLevel(logging.INFO)
+_root_logger.handlers = [_stream_handler, _file_handler]  # pytest pre-configures root handlers; basicConfig() would silently no-op
 
 structlog.configure(
     processors=[
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.JSONRenderer(),
+        structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
     ],
-    logger_factory=structlog.PrintLoggerFactory(file=sys.stdout),
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
     cache_logger_on_first_use=True,
 )
 
@@ -437,6 +462,10 @@ structlog.configure(
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     return structlog.get_logger(name).bind(logger=name)
 ```
+
+Writes structured JSON to both stdout and `backend/logs/app.log` (rotating,
+10MB x 5 backups, gitignored — regenerable). No frontend equivalent: browser
+JS has no filesystem access, so `frontend/lib/logger.ts` stays console-only.
 
 - [ ] **Step 4: Run test to verify it passes**
 
