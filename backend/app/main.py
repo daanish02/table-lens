@@ -6,6 +6,7 @@ from slowapi import _rate_limit_exceeded_handler
 
 from app.api.middleware import limiter
 from app.api.routes import discover_router, data_router, query_router, charts_router, visualize_router
+from app.config import ALLOWED_ORIGINS
 from app.utils import get_logger
 
 log = get_logger(__name__)
@@ -26,7 +27,7 @@ async def log_unhandled_exception(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

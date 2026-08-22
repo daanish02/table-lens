@@ -45,3 +45,8 @@ EMBEDDING_DIM = 768                                 # truncated via dimensions= 
 
 # ── API ───────────────────────────────────────────────────────────────────
 RATE_LIMIT = "20/minute"
+# Comma-separated in prod (e.g. "https://tablelens.yourdomain.com"). Falls
+# back to local dev ports when unset.
+ALLOWED_ORIGINS = [
+    o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if o.strip()
+]
