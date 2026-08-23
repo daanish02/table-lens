@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/data", tags=["data"])
 @router.get("/{table_name}")
 @limiter.limit("20/minute")
 def data_browse(request: Request, table_name: str, page: int = 1, page_size: int = 50):
-    engine = get_engine()
+    engine = get_engine(readonly=True)
     try:
         return browse_table(engine, table_name, page, page_size)
     except ValueError as e:
