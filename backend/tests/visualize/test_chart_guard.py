@@ -122,7 +122,33 @@ def test_leaves_layout_untouched_when_few_categories_no_rotation():
     }
     result = validate_chart_spec(spec)
     assert result["option"]["legend"] == {"bottom": 0}
-    assert "grid" not in result["option"]
+    # containLabel is always forced on (see test_forces_contain_label_on) —
+    # only the crowded-labels-specific "bottom" adjustment is untouched here.
+    assert result["option"]["grid"] == {"containLabel": True}
+
+
+def test_forces_contain_label_on_when_no_grid_given():
+    spec = {
+        "title": "x",
+        "chart_type": "bar",
+        "option": {"series": [{"type": "bar", "data": [1, 2, 3]}]},
+    }
+    result = validate_chart_spec(spec)
+    assert result["option"]["grid"] == {"containLabel": True}
+
+
+def test_forces_contain_label_on_without_overriding_existing_grid_settings():
+    spec = {
+        "title": "x",
+        "chart_type": "bar",
+        "option": {
+            "grid": {"left": "10%", "containLabel": False},
+            "series": [{"type": "bar", "data": [1, 2, 3]}],
+        },
+    }
+    result = validate_chart_spec(spec)
+    # containLabel: False was explicit, not just unset — left as the LLM's choice.
+    assert result["option"]["grid"] == {"left": "10%", "containLabel": False}
 
 
 def test_strips_duplicate_option_title():

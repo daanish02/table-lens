@@ -82,6 +82,26 @@ def _normalize_layout(option: dict) -> None:
     grid["bottom"] = "18%"
 
 
+def _ensure_contain_label(option: dict) -> None:
+    """Forces grid.containLabel = true unless the LLM explicitly set it.
+    Without it, axis labels and axis `name` text (e.g. a "Ratio" title next
+    to the value axis) are positioned assuming the grid box already leaves
+    room for them — if it doesn't, they render past the plot's edge and get
+    clipped by the chart card's fixed width instead of just being tight.
+    containLabel makes ECharts auto-reserve the space instead of assuming
+    it's already there. Handles grid as a single object or (for multi-grid
+    combo charts) a list of them."""
+    grid = option.get("grid")
+    if isinstance(grid, list):
+        for g in grid:
+            if isinstance(g, dict):
+                g.setdefault("containLabel", True)
+    elif isinstance(grid, dict):
+        grid.setdefault("containLabel", True)
+    else:
+        option["grid"] = {"containLabel": True}
+
+
 def validate_chart_spec(spec: dict) -> dict:
     """Validates + normalizes a generated chart spec in place (stripping
     unusable JS-function strings, auto-fixing known layout collisions),
@@ -116,6 +136,7 @@ def validate_chart_spec(spec: dict) -> dict:
 
     _strip_js_function_strings(option)
     _normalize_layout(option)
+    _ensure_contain_label(option)
     option.pop("title", None)  # frontend renders spec["title"] as its own heading; a
                                 # duplicate ECharts title component wastes vertical space
                                 # and can overlap the plot when the chart is shown small
