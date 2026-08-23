@@ -10,6 +10,23 @@ $root = Split-Path -Parent $PSScriptRoot
 $runDir = Join-Path $root ".run"
 New-Item -ItemType Directory -Force -Path $runDir | Out-Null
 
+# Single .env convention — one file at repo root, not separate frontend/.env.local.
+# Export into this process's env before Start-Process spawns backend/frontend, so
+# both (and any child processes Next spawns) inherit it — Next's own build-time
+# env loading doesn't reliably pick up a root .env (confirmed via testing).
+$envFile = Join-Path $root ".env"
+if (Test-Path $envFile) {
+    foreach ($line in Get-Content $envFile) {
+        $line = $line.Trim()
+        if ($line -eq "" -or $line.StartsWith("#")) { continue }
+        $idx = $line.IndexOf("=")
+        if ($idx -lt 1) { continue }
+        $key = $line.Substring(0, $idx).Trim()
+        $value = $line.Substring($idx + 1).Trim()
+        [System.Environment]::SetEnvironmentVariable($key, $value, "Process")
+    }
+}
+
 function Stop-Port($port) {
     $conns = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
     foreach ($ownerPid in ($conns | Select-Object -ExpandProperty OwningProcess -Unique)) {

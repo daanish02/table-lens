@@ -11,6 +11,19 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 run_dir="$root/.run"
 mkdir -p "$run_dir"
 
+# Single .env convention — one file at the repo root, not a separate
+# frontend/.env.local. Exporting it into the actual process environment
+# here (rather than relying on Next's own build-time env loading, which
+# doesn't reliably see env set from outside its own process — confirmed
+# via testing) means both the backend and frontend just inherit it
+# naturally, regardless of what either framework does internally.
+if [ -f "$root/.env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$root/.env"
+    set +a
+fi
+
 kill_port() {
     local port="$1"
     local pids
