@@ -44,3 +44,28 @@ def test_rejects_multiple_statements():
 def test_rejects_unparseable_sql():
     with pytest.raises(SQLValidationError):
         validate_and_normalize("SELEKT nonsense FR0M")
+
+
+def test_rejects_pg_sleep():
+    with pytest.raises(SQLValidationError):
+        validate_and_normalize("SELECT pg_sleep(60)")
+
+
+def test_rejects_pg_sleep_used_as_a_predicate():
+    with pytest.raises(SQLValidationError):
+        validate_and_normalize("SELECT * FROM demo.claims WHERE pg_sleep(1) IS NULL")
+
+
+def test_rejects_setval():
+    with pytest.raises(SQLValidationError):
+        validate_and_normalize("SELECT setval('some_seq', 1)")
+
+
+def test_rejects_set_config():
+    with pytest.raises(SQLValidationError):
+        validate_and_normalize("SELECT set_config('statement_timeout', '0', false)")
+
+
+def test_allows_ordinary_functions():
+    sql = validate_and_normalize("SELECT COUNT(*), MAX(a), NOW() FROM demo.claims")
+    assert "SELECT" in sql
