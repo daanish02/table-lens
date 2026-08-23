@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 export default function ConfirmDialog({
   open,
   title,
@@ -15,15 +17,63 @@ export default function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const triggerElementRef = useRef<Element | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    triggerElementRef.current = document.activeElement;
+    cancelRef.current?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onCancel();
+        return;
+      }
+      // Basic focus trap — only two focusable elements (cancel/confirm), so
+      // Tab/Shift+Tab just needs to wrap between them instead of escaping
+      // to whatever's behind the overlay.
+      if (e.key === "Tab") {
+        const first = cancelRef.current;
+        const last = confirmRef.current;
+        if (!first || !last) return;
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      // Restore focus to whatever opened the dialog, so keyboard users
+      // don't lose their place after it closes.
+      if (triggerElementRef.current instanceof HTMLElement) {
+        triggerElementRef.current.focus();
+      }
+    };
+  }, [open, onCancel]);
+
   if (!open) return null;
   return (
     <div style={styles.overlay} onClick={onCancel}>
-      <div style={styles.box} onClick={(e) => e.stopPropagation()}>
-        <div style={styles.title}>{title}</div>
-        <div style={styles.message}>{message}</div>
+      <div
+        style={styles.box}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-message"
+      >
+        <div id="confirm-dialog-title" style={styles.title}>{title}</div>
+        <div id="confirm-dialog-message" style={styles.message}>{message}</div>
         <div style={styles.actions}>
-          <button style={styles.cancelButton} onClick={onCancel}>cancel</button>
-          <button style={styles.confirmButton} onClick={onConfirm}>{confirmLabel}</button>
+          <button ref={cancelRef} style={styles.cancelButton} onClick={onCancel}>cancel</button>
+          <button ref={confirmRef} style={styles.confirmButton} onClick={onConfirm}>{confirmLabel}</button>
         </div>
       </div>
     </div>
