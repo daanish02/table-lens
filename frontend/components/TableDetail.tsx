@@ -31,7 +31,7 @@ type ColumnProfile = {
   p50: number | null;
   p95: number | null;
   top_values: [unknown, number][];
-  histogram: [number, number, number][]; // [bucket_min, bucket_max, count]
+  histogram: [number, number][];
 };
 
 type ColumnResult = {
@@ -219,10 +219,8 @@ function ColumnCard({ col }: { col: ColumnResult }) {
         <div style={styles.columnCardChart}>
           {hasHistogram && (
             <ProfileBarChart
-              labels={profile!.histogram.map(([min, max]) =>
-                min === max ? formatAxisNumber(min) : `${formatAxisNumber(min)}–${formatAxisNumber(max)}`
-              )}
-              counts={profile!.histogram.map(([, , c]) => c)}
+              labels={profile!.histogram.map(([min]) => formatAxisNumber(min))}
+              counts={profile!.histogram.map(([, c]) => c)}
             />
           )}
           {hasTopValues && (
@@ -332,7 +330,7 @@ function ProfileBarChart({ labels, counts }: { labels: string[]; counts: number[
       data: labels,
       axisLine: { lineStyle: { color: grid } },
       axisTick: { show: false },
-      axisLabel: { color: text, fontSize: 10, interval: 0, rotate: labels.length > 8 ? 45 : 0 },
+      axisLabel: { show: false },
     },
     yAxis: {
       type: "value" as const,
@@ -478,7 +476,8 @@ const styles: Record<string, React.CSSProperties> = {
     background: "var(--bg)",
   },
   columnCardName: {
-    fontSize: 13,
+    fontSize: 15,
+    fontWeight: 600,
     color: "var(--text)",
   },
   columnCardDesc: {
@@ -526,6 +525,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 10,
     letterSpacing: "0.05em",
     textTransform: "uppercase",
-    color: "var(--text-faint)",
+    color: "var(--text-dim)",
   },
 };
