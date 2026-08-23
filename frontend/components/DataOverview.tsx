@@ -56,6 +56,11 @@ type TableCompletion = {
   durationMs: number;
 };
 
+// A backend restart loses in-memory run state (or the run_id becomes
+// otherwise unreachable) — without a ceiling, the status poll below would
+// retry every 1500ms forever with nothing ever telling the user it's stuck.
+const MAX_STATUS_POLL_FAILURES = 5;
+
 const PHASES = ["profiling", "describing", "embedding", "table_done"] as const;
 
 function phaseOf(step: string): (typeof PHASES)[number] | "other" {
@@ -80,35 +85,57 @@ export default function DataOverview() {
   const [resultsLoading, setResultsLoading] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [overviewError, setOverviewError] = useState(false);
+  const [resultsError, setResultsError] = useState(false);
+  const [statusLost, setStatusLost] = useState(false);
+  const [overviewReloadKey, setOverviewReloadKey] = useState(0);
+  const [resultsReloadKey, setResultsReloadKey] = useState(0);
   const lastStep = useRef<string | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const lastCompletionRef = useRef<number | null>(null);
+  const statusPollFailures = useRef(0);
 
   const isRunning = status?.status === "running" || status?.status === "pending";
 
-  useEffect(() => {
+  function loadOverview() {
+    setOverviewError(false);
     apiClient
       .get<OverviewResponse>("/api/discover/overview")
       .then(setOverview)
-      .catch((err) => logger.error("failed to load overview", err));
-  }, []);
+      .catch((err) => {
+        logger.error("failed to load overview", err);
+        setOverviewError(true);
+      });
+  }
 
-  useEffect(() => {
+  useEffect(loadOverview, [overviewReloadKey]);
+
+  function loadResults() {
+    setResultsError(false);
+    setResultsLoading(true);
     apiClient
       .get<{ tables: TableResult[] }>("/api/discover/results")
       .then((r) => setResults(r.tables))
-      .catch(() => {
-        // no discovery run yet — leave results empty, not an error state
+      .catch((err) => {
+        // /api/discover/results always returns 200 (empty tables array when
+        // no run has completed yet) — it never 404s, so any exception here
+        // is a genuine failure (network/server), not a legitimate empty state.
+        logger.error("failed to load discovered tables", err);
+        setResultsError(true);
       })
       .finally(() => setResultsLoading(false));
-  }, []);
+  }
+
+  useEffect(loadResults, [resultsReloadKey]);
 
   useEffect(() => {
     if (!runId || !status || status.status === "done" || status.status === "failed") return;
+    if (statusLost) return;
 
     const interval = setInterval(async () => {
       try {
         const next = await apiClient.get<DiscoverStatus>(`/api/discover/status/${runId}`);
+        statusPollFailures.current = 0;
         setStatus(next);
         if (next.step && next.step !== lastStep.current) {
           lastStep.current = next.step;
@@ -117,6 +144,10 @@ export default function DataOverview() {
         }
       } catch (err) {
         logger.error("status poll failed", err);
+        statusPollFailures.current += 1;
+        if (statusPollFailures.current >= MAX_STATUS_POLL_FAILURES) {
+          setStatusLost(true);
+        }
       }
     }, 1500);
 
@@ -145,6 +176,8 @@ export default function DataOverview() {
     startTimeRef.current = Date.now();
     lastCompletionRef.current = Date.now();
     setElapsedMs(0);
+    statusPollFailures.current = 0;
+    setStatusLost(false);
     try {
       const res = await apiClient.post<{ run_id: string }>("/api/discover", {});
       setRunId(res.run_id);
@@ -188,7 +221,12 @@ export default function DataOverview() {
       </div>
 
       <div style={styles.statsHeader}>
-        {overview ? (
+        {overviewError ? (
+          <div style={styles.inlineError}>
+            couldn't load overview stats
+            <button style={styles.retryButton} onClick={() => setOverviewReloadKey((k) => k + 1)}>retry</button>
+          </div>
+        ) : overview ? (
           <>
             <StatCell label="tables" value={formatCount(overview.stats.table_count)} />
             <StatCell label="columns" value={formatCount(overview.stats.column_count)} />
@@ -217,6 +255,12 @@ export default function DataOverview() {
           ))
         )}
       </div>
+
+      {statusLost && (
+        <div style={styles.errorBox}>
+          Lost track of this discovery run — the backend may have restarted. It may still be running server-side; refresh to check the latest status.
+        </div>
+      )}
 
       <button
         onClick={() => setConfirmOpen(true)}
@@ -300,7 +344,16 @@ export default function DataOverview() {
         </div>
       )}
 
-      {!resultsLoading && results && (
+      {!resultsLoading && resultsError && (
+        <div style={styles.tableGridSection}>
+          <div style={styles.inlineError}>
+            couldn't load discovered tables
+            <button style={styles.retryButton} onClick={() => setResultsReloadKey((k) => k + 1)}>retry</button>
+          </div>
+        </div>
+      )}
+
+      {!resultsLoading && !resultsError && results && (
         <div style={styles.tableGridSection}>
           <div style={styles.sectionTitle}>discovered tables ({results.length})</div>
           <div style={styles.tableGrid}>
@@ -421,6 +474,23 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--error)",
     padding: "10px 14px",
     fontSize: 13,
+    borderRadius: 2,
+  },
+  inlineError: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    color: "var(--error)",
+    fontSize: 13,
+  },
+  retryButton: {
+    background: "transparent",
+    border: "1px solid var(--error)",
+    color: "var(--error)",
+    padding: "4px 10px",
+    fontFamily: "var(--mono)",
+    fontSize: 12,
+    cursor: "pointer",
     borderRadius: 2,
   },
   progressBlock: {
