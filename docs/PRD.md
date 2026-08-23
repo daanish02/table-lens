@@ -104,7 +104,15 @@ call (`backend/app/visualize/agent.py`), guided by a prompt rather than
 fixed deterministic rules. Supported chart types: line, bar, pie, scatter,
 and `stat` (a single-value/big-number display). Rendered with ECharts, with
 zoom/hover interactivity. "Save chart" persists to Supabase
-(`saved_charts` — see `SCHEMAS.md`).
+(`saved_charts` — see `SCHEMAS.md`). Chart titles are deterministically
+title-cased server-side (`chart_guard.py`), not left to the LLM's own
+formatting.
+
+Both `/ask` and `/visualize` support downloading the current result:
+"download csv" (the underlying rows, client-side, filename derived from
+the question asked) on both pages, plus "download png" on `/visualize`
+for the rendered chart itself. No backend endpoint involved — both are
+generated entirely in the browser from data already on the page.
 
 ## Dashboard Builder
 - Charts accumulate as cards in a static grid during a `/visualize` session
@@ -117,10 +125,11 @@ zoom/hover interactivity. "Save chart" persists to Supabase
 
 ## Out of Scope
 RBAC, organizations, multi-tenant, audit logs, link expiry. Not scheduled.
-Drag-and-drop dashboard layout, NL dashboard composition, cross-table
-redundancy detection, and CSV export are not built and not currently
-planned — flagged here since earlier drafts of this doc described them as
-in-scope.
+Drag-and-drop dashboard layout, NL dashboard composition, and cross-table
+redundancy detection are not built and not currently planned — flagged
+here since earlier drafts of this doc described them as in-scope. (CSV/PNG
+download *is* now built — see Chat + Chart UI above; it was on this list
+too until it shipped.)
 
 ## Key Architectural Decisions
 

@@ -21,7 +21,7 @@ tests/
 ### Three tiers, by marker
 
 1. **Default (no marker)** — pure/mocked tests. No network, no real DB or
-   LLM calls. This is the bulk of the suite (~76 tests) and runs in about
+   LLM calls. This is the bulk of the suite (~81 tests) and runs in about
    2 seconds.
 2. **`requires_db` / `requires_llm` / `requires_full_stack`** — real
    integration tests that hit a live Supabase database and/or a live
@@ -51,9 +51,9 @@ tests/
 
 ```bash
 cd backend
-uv run pytest                           # default: fast tier only, ~76 tests, ~2s
+uv run pytest                           # default: fast tier only, ~81 tests, ~2s
 uv run pytest --durations=10            # see the slowest tests in the run
-RUN_LIVE_TESTS=1 uv run pytest          # fast + live-DB/LLM tiers (~89 tests)
+RUN_LIVE_TESTS=1 uv run pytest          # fast + live-DB/LLM tiers (~94 tests)
 RUN_LIVE_TESTS=1 uv run pytest -m slow  # the one full end-to-end test too
 ```
 
