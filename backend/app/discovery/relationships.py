@@ -1,3 +1,7 @@
+"""Infers undeclared foreign-key relationships (no FK constraint in the
+schema) by name-matching *_id columns to a likely target table, then
+confirming with a value-overlap sample — never just trusting the name."""
+
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text, Engine
 
@@ -10,6 +14,9 @@ log = get_logger(__name__)
 
 
 class InferredRelationship(BaseModel):
+    """One undeclared FK-like relationship, confirmed by sampled value
+    overlap (overlap_pct >= DISCOVERY_FK_OVERLAP_THRESHOLD)."""
+
     model_config = ConfigDict(frozen=True)
 
     from_table: str
@@ -33,6 +40,8 @@ def _candidate_columns(tables: list[TableInfo]) -> list[tuple[str, str]]:
 
 
 def _target_table_guess(column_name: str, tables: list[TableInfo]) -> str | None:
+    """Guesses the target table for `column_name` (e.g. "agent_id" ->
+    "agents") by trying plural suffixes against real table names."""
     stem = column_name[: -len("_id")]
     for plural_suffix in ("s", "es", ""):
         guess = f"{stem}{plural_suffix}"
@@ -42,6 +51,8 @@ def _target_table_guess(column_name: str, tables: list[TableInfo]) -> str | None
 
 
 def infer_relationships(engine: Engine, schema: str, tables: list[TableInfo]) -> list[InferredRelationship]:
+    """Every undeclared FK-like relationship found in `schema`, confirmed
+    by sampled value overlap between candidate columns and target PKs."""
     log.info(f"inferring relationships for schema: {schema}")
     results = []
     table_names = {t.name for t in tables}

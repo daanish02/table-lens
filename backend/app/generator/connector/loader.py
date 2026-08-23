@@ -85,6 +85,8 @@ def _psycopg_dsn(url: str) -> str:
 
 
 def get_engine():
+    """SQLAlchemy engine for the loader, sized for MAX_WORKERS concurrent
+    table loads. Exits the process if SUPABASE_DB_URL isn't set."""
     url = SUPABASE_DB_URL
     if not url:
         console.print("[red]✗ SUPABASE_DB_URL not set.[/red]")
@@ -126,6 +128,8 @@ def close_all_connections(engine) -> None:
 
 
 def create_table_if_not_exists(engine, table_name: str, schema: str) -> None:
+    """Creates `schema` and the table from its static DDL, stripping the
+    placeholder marker for dynamically-added wide-table columns."""
     ddl = get_ddl(table_name, schema=schema)
     # Strip the ext_col_start placeholder — actual wide cols were added dynamically.
     # Removing it can leave a dangling comma before the closing paren (invalid
@@ -140,6 +144,8 @@ def create_table_if_not_exists(engine, table_name: str, schema: str) -> None:
 
 
 def _pg_type_for(dtype) -> str:
+    """Maps a pandas dtype to a Postgres column type for dynamically-added
+    columns."""
     if pd.api.types.is_datetime64_any_dtype(dtype):
         return "TIMESTAMP"
     if pd.api.types.is_bool_dtype(dtype):
@@ -177,6 +183,8 @@ def ensure_extra_columns(engine, table_name: str, schema: str, df: pd.DataFrame)
 
 
 def load_table(engine, table_name: str, dry_run: bool = False, schema: str = DEMO_SCHEMA) -> bool:
+    """Loads one table's parquet file into `schema`, creating/altering the
+    table as needed. Returns False if the parquet doesn't exist."""
     parquet_path = OUTPUT_DIR / f"{table_name}.parquet"
 
     if not parquet_path.exists():
@@ -272,6 +280,7 @@ def load_table(engine, table_name: str, dry_run: bool = False, schema: str = DEM
 
 
 def main() -> None:
+    """CLI entry point — see --help for the available flags."""
     parser = argparse.ArgumentParser(description="Load parquet files into Supabase")
     parser.add_argument("--table",   help="Load a single table by name")
     parser.add_argument("--dry-run", action="store_true", help="Validate parquets without loading")

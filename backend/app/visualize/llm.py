@@ -1,3 +1,6 @@
+"""Shared ChatOpenAI client for the visualize agent's single structured
+chart-generation call."""
+
 from functools import lru_cache
 from langchain_openai import ChatOpenAI
 
@@ -24,6 +27,7 @@ VISUALIZE_LLM_TIMEOUT_SECONDS = 120
 
 @lru_cache
 def get_llm() -> ChatOpenAI:
+    """Cached ChatOpenAI client for the visualize agent."""
     return ChatOpenAI(
         model=LLM_MODEL,
         api_key=OPENROUTER_API_KEY,

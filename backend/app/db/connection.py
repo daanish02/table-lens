@@ -1,3 +1,6 @@
+"""SQLAlchemy engine factory — one cached engine for the writable DB role,
+one for the read-only role, both pooled to fit Supabase's connection cap."""
+
 import os
 from functools import lru_cache
 from sqlalchemy import create_engine, Engine
@@ -32,6 +35,9 @@ def _normalize(url: str) -> str:
 
 @lru_cache
 def get_engine(readonly: bool = False) -> Engine:
+    """Returns the cached engine for the requested DB role, creating it on
+    first call. readonly=True uses SUPABASE_DB_URL_READONLY (or DB_URL if
+    that's unset — see the startup warning above)."""
     url = READONLY_DB_URL if readonly else DB_URL
     if not url:
         raise RuntimeError("SUPABASE_DB_URL is not set")

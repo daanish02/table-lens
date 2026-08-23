@@ -11,4 +11,5 @@ _PROMPTS_DIR = Path(__file__).parent
 
 @lru_cache
 def load(name: str) -> str:
+    """Reads a .md prompt template by name (no extension) from this directory."""
     return (_PROMPTS_DIR / f"{name}.md").read_text()

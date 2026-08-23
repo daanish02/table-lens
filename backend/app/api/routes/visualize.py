@@ -25,6 +25,9 @@ MAX_COLUMNS = 200
 
 
 class VisualizeRequest(BaseModel):
+    """Body for POST /api/visualize — a query agent's already-finished
+    result, verbatim."""
+
     question: str = Field(max_length=MAX_TEXT_LENGTH)
     sql: str = Field(max_length=MAX_TEXT_LENGTH)
     headline: str | None = Field(default=None, max_length=MAX_TEXT_LENGTH)
@@ -36,4 +39,5 @@ class VisualizeRequest(BaseModel):
 @router.post("")
 @limiter.limit("20/minute")
 def visualize(request: Request, body: VisualizeRequest):
+    """Turns a finished query result into a validated ECharts spec."""
     return generate_chart(body.question, body.sql, body.headline or "", body.columns, body.rows, theme=body.theme)

@@ -17,6 +17,8 @@ log = get_logger(__name__)
 
 
 def build_tools(engine: Engine) -> list:
+    """The three tools the query agent can call, closed over `engine` so
+    it always runs against the caller's chosen (read-only) connection."""
     @tool
     def search_tables(query: str) -> str:
         """Semantic search over available database tables. Returns up to 8

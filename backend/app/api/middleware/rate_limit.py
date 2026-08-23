@@ -1,3 +1,6 @@
+"""Shared slowapi rate limiter, keyed per-IP. Individual routes apply this
+default via @limiter.limit(...) or override it with a tighter one."""
+
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 

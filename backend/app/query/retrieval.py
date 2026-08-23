@@ -15,6 +15,8 @@ log = get_logger(__name__)
 
 
 def search_tables(engine: Engine, query_text: str, top_k: int = 8) -> list[dict]:
+    """Semantic search over table descriptions — the top_k closest tables
+    to `query_text` by pgvector cosine distance."""
     vector = get_embeddings().embed_query(query_text)
     with engine.connect() as conn:
         rows = conn.execute(
@@ -26,6 +28,8 @@ def search_tables(engine: Engine, query_text: str, top_k: int = 8) -> list[dict]
 
 
 def search_columns(engine: Engine, table_name: str, query_text: str, top_k: int = 20) -> list[dict]:
+    """Semantic search over one table's column descriptions — the top_k
+    closest columns to `query_text`."""
     vector = get_embeddings().embed_query(query_text)
     with engine.connect() as conn:
         rows = conn.execute(

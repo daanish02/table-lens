@@ -14,6 +14,8 @@ SAMPLE_SIZE = 20
 
 
 def generate_headline(question: str, sql: str, result: dict) -> str:
+    """One-line plain-English summary of an already-executed query's
+    result, from a sample of rows (not the full result)."""
     sample = result["rows"][:SAMPLE_SIZE]
     prompt = prompts.load("headline").format(
         question=question,

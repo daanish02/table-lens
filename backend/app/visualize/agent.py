@@ -29,6 +29,7 @@ MAX_ROWS_IN_PROMPT = 200
 
 
 def _extract_json(text: str) -> dict:
+    """Strips a markdown code fence around the LLM's JSON response, if present."""
     text = text.strip()
     if text.startswith("```"):
         text = text.strip("`")
@@ -39,6 +40,10 @@ def _extract_json(text: str) -> dict:
 
 
 def generate_chart(question: str, sql: str, headline: str, columns: list[str], rows: list[dict], theme: str = "dark") -> dict:
+    """One structured LLM call turning a finished query result into a
+    validated {title, chart_type, option} spec, retrying up to
+    MAX_ATTEMPTS on validation failure. Falls back to chart_type="table"
+    if every attempt fails."""
     # Plain log lines have no request identity, so concurrent chart builds
     # (e.g. several dashboard cards queued close together) interleave into
     # an unreadable mess — a short id per call lets you grep one out.

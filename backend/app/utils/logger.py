@@ -28,4 +28,6 @@ _root_logger.handlers = [_stream_handler, _file_handler]  # pytest pre-configure
 
 
 def get_logger(name: str) -> logging.Logger:
+    """Standard `logging.getLogger(name)` — module-level setup above
+    already wired the shared stdout + rotating-file handlers onto root."""
     return logging.getLogger(name)

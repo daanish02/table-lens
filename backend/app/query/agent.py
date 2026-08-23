@@ -34,6 +34,8 @@ RECURSION_LIMIT = 45
 
 
 def _summarize_tool_result(name: str, content: str) -> str:
+    """Short human-readable line for the live progress stream — the full
+    tool result still goes to the client separately; this is cosmetic only."""
     try:
         payload = json.loads(content)
     except (TypeError, json.JSONDecodeError):

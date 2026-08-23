@@ -1,3 +1,7 @@
+"""Reads a Postgres schema's raw structure (tables, columns, types,
+primary/foreign keys) via information_schema — no profiling or LLM calls
+here, just what the catalog itself already knows."""
+
 from collections import defaultdict
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text, Engine
@@ -9,6 +13,9 @@ log = get_logger(__name__)
 
 
 class ColumnInfo(BaseModel):
+    """One column's structural metadata — name, type, key relationships.
+    Immutable (frozen) since it's a point-in-time snapshot."""
+
     model_config = ConfigDict(frozen=True)
 
     name: str
@@ -20,6 +27,8 @@ class ColumnInfo(BaseModel):
 
 
 class TableInfo(BaseModel):
+    """One table's name and columns. Immutable, same reason as ColumnInfo."""
+
     model_config = ConfigDict(frozen=True)
 
     name: str
@@ -27,6 +36,7 @@ class TableInfo(BaseModel):
 
 
 def get_schema_snapshot(engine: Engine, schema: str) -> list[TableInfo]:
+    """Every table in `schema`, with full column/PK/FK metadata."""
     log.info(f"introspecting schema: {schema}")
     with engine.connect() as conn:
         table_names = [r[0] for r in conn.execute(text(queries.load("introspect_tables")), {"schema": schema})]
@@ -58,6 +68,7 @@ def get_schema_snapshot(engine: Engine, schema: str) -> list[TableInfo]:
 
 
 def to_hashable(tables: list[TableInfo]) -> list[dict]:
+    """Canonical, order-independent representation for schema_hash()."""
     return [
         {"table": t.name, "columns": sorted((c.name, c.data_type) for c in t.columns)}
         for t in tables

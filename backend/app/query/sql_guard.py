@@ -38,10 +38,15 @@ BLOCKED_FUNCTIONS = {
 
 
 class SQLValidationError(ValueError):
+    """Raised when a query fails validate_and_normalize() — not
+    single-statement SELECT, or calls a blocked function."""
+
     pass
 
 
 def _func_name(node: exp.Func) -> str | None:
+    """Lowercased function name from a parsed call, or None if it can't
+    be determined."""
     this = node.args.get("this")
     if isinstance(this, str):
         return this.lower()

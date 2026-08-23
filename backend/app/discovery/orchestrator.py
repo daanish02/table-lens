@@ -1,3 +1,8 @@
+"""Drives the discovery pipeline end to end: profile every table, infer
+relationships, then describe+embed only what actually changed (per-column
+content-hash caching — see signature.py). Runs in a background thread per
+call so the triggering HTTP request returns immediately."""
+
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -41,6 +46,9 @@ def _describe_column_safe(table_name: str, col, profile) -> tuple[str, str | Non
 
 
 def _process_table(engine, run_id: str, schema: str, table, profiles: dict, all_table_names: list[str]) -> None:
+    """Refreshes one table's stats unconditionally, then describes+embeds
+    it only if at least one column's content actually changed since last
+    run (or it's never been described)."""
     # Every column's profile.row_count is the same table-level value —
     # any one of them works.
     row_count = next(iter(profiles.values())).row_count if profiles else None
@@ -95,6 +103,8 @@ def _process_table(engine, run_id: str, schema: str, table, profiles: dict, all_
 
 
 def _run_pipeline(engine, run_id: str, schema: str, tables) -> None:
+    """Profiles every table, infers relationships, then processes each
+    table (see _process_table). Marks the run done/failed at the end."""
     # Every table is always (re-)profiled — profiling is DB-bound and cheap
     # after the batched-query rewrite, and it's the only way to know whether
     # a table's columns actually changed. What's expensive (LLM + embedding
@@ -163,6 +173,16 @@ def _run_pipeline(engine, run_id: str, schema: str, tables) -> None:
 
 
 def run_discovery(db_url: str = "", schema: str = DEMO_SCHEMA, background: bool = False) -> str:
+    """Starts a new discovery run, returns its run_id.
+
+    Args:
+        background: If True, runs the pipeline on a daemon thread and
+            returns immediately (the HTTP API path). If False, runs
+            synchronously (tests/scripts).
+
+    Raises:
+        DiscoveryRunInProgress: if a run is already pending/running.
+    """
     # No whole-run short-circuit: every run always executes, since the
     # per-column content_hash check in _process_table is what actually
     # decides whether LLM/embedding cost is paid (schema_hash is still
@@ -194,5 +214,6 @@ def run_discovery(db_url: str = "", schema: str = DEMO_SCHEMA, background: bool 
 
 
 def get_discovery_status(run_id: str) -> dict | None:
+    """One run's current status, or None if run_id is unknown."""
     engine = get_engine()
     return get_status(engine, run_id)

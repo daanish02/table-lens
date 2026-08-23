@@ -25,4 +25,6 @@ _PALETTES = {
 
 
 def get_palette(theme: str) -> dict:
+    """Color palette for `theme` ("light" or "dark"); unknown values fall
+    back to dark."""
     return _PALETTES.get(theme, _PALETTES["dark"])

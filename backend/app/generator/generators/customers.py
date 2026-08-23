@@ -14,6 +14,7 @@ from config import OUTPUT_DIR
 
 
 def generate_customers() -> pd.DataFrame:
+    """Synthetic customer records, one row per customer."""
     n = ROW_COUNTS["customers"]
     segments     = ["STANDARD", "PREFERRED", "VIP", "MASS_MARKET", "CORPORATE"]
     channels     = ["ONLINE", "AGENT", "BROKER", "DIRECT", "REFERRAL", "BANK"]
@@ -74,6 +75,7 @@ def generate_customers() -> pd.DataFrame:
 
 
 def generate_customer_addresses() -> pd.DataFrame:
+    """Synthetic customer address records (a customer can have several)."""
     n = ROW_COUNTS["customer_addresses"]
     n_customers = ROW_COUNTS["customers"]
     addr_types = ["MAILING", "BILLING", "PROPERTY", "PREVIOUS"]
@@ -96,6 +98,7 @@ def generate_customer_addresses() -> pd.DataFrame:
 
 
 def generate_customer_contacts() -> pd.DataFrame:
+    """Synthetic customer contact-method records."""
     n = ROW_COUNTS["customer_contacts"]
     n_customers = ROW_COUNTS["customers"]
     contact_types = ["EMAIL", "MOBILE", "HOME", "WORK"]
@@ -113,6 +116,7 @@ def generate_customer_contacts() -> pd.DataFrame:
 
 
 def generate_beneficiaries() -> pd.DataFrame:
+    """Synthetic policy beneficiary records."""
     n = ROW_COUNTS["beneficiaries"]
     n_policies  = ROW_COUNTS["policies"]
     n_customers = ROW_COUNTS["customers"]
@@ -133,6 +137,7 @@ def generate_beneficiaries() -> pd.DataFrame:
 
 
 def generate_agents() -> pd.DataFrame:
+    """Synthetic insurance agent records."""
     n = ROW_COUNTS["agents"]
     tiers  = ["BRONZE", "SILVER", "GOLD", "PLATINUM"]
     regions = ["NORTHEAST", "SOUTHEAST", "MIDWEST", "SOUTHWEST", "WEST"]
@@ -159,6 +164,7 @@ def generate_agents() -> pd.DataFrame:
 
 
 def generate_agent_performance() -> pd.DataFrame:
+    """Synthetic monthly agent-performance snapshot records."""
     n = ROW_COUNTS["agent_performance"]
     n_agents = ROW_COUNTS["agents"]
 
@@ -187,6 +193,7 @@ def generate_agent_performance() -> pd.DataFrame:
 
 
 def generate_third_parties() -> pd.DataFrame:
+    """Synthetic third-party (claimants, witnesses, etc.) records."""
     n = ROW_COUNTS["third_parties"]
     types = ["CLAIMANT", "WITNESS", "LEGAL_REP", "EXPERT", "MEDICAL_PROVIDER"]
 
@@ -207,6 +214,7 @@ def generate_third_parties() -> pd.DataFrame:
 
 
 def generate_employers() -> pd.DataFrame:
+    """Synthetic employer records."""
     n = ROW_COUNTS["employers"]
     industries = ["HEALTHCARE", "TECHNOLOGY", "FINANCE", "RETAIL", "MANUFACTURING",
                   "EDUCATION", "GOVERNMENT", "CONSTRUCTION", "HOSPITALITY", "TRANSPORT"]

@@ -23,6 +23,8 @@ router = APIRouter(prefix="/api/discover", tags=["discover"])
 # gets its own, much stingier budget rather than sharing the generic one.
 @limiter.limit("5/hour")
 def discover(request: Request):
+    """Starts a discovery run in the background, returns its run_id
+    immediately. 409s if one's already in progress."""
     log.info("discover request received")
     try:
         run_id = run_discovery(background=True)
@@ -34,6 +36,7 @@ def discover(request: Request):
 @router.get("/status/{run_id}")
 @limiter.limit("20/minute")
 def discover_status(request: Request, run_id: str):
+    """Poll target for a run's progress (step, tables_done, etc)."""
     status = get_discovery_status(run_id)
     if status is None:
         raise HTTPException(status_code=404, detail="run_id not found")
@@ -43,6 +46,7 @@ def discover_status(request: Request, run_id: str):
 @router.get("/results")
 @limiter.limit("20/minute")
 def discover_results(request: Request):
+    """Every discovered table with its LLM-generated description."""
     engine = get_engine(readonly=True)
     return {"tables": list_table_descriptions(engine)}
 
@@ -50,6 +54,7 @@ def discover_results(request: Request):
 @router.get("/results/{table_name}")
 @limiter.limit("20/minute")
 def discover_table_columns(request: Request, table_name: str):
+    """One table's description plus every column's description/profile."""
     engine = get_engine(readonly=True)
     return {"table": get_table_description(engine, table_name), "columns": get_column_descriptions(engine, table_name)}
 
@@ -57,6 +62,8 @@ def discover_table_columns(request: Request, table_name: str):
 @router.get("/overview")
 @limiter.limit("20/minute")
 def discover_overview(request: Request):
+    """Schema-wide stats (table/column/row counts) plus the most recent
+    discovery run's status."""
     # get_last_run() calls ensure_runs_table() internally (self-healing
     # CREATE TABLE IF NOT EXISTS on public.discovery_runs) — a genuinely
     # read-only DB role correctly rejects that DDL, so this one call needs

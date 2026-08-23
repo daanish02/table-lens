@@ -30,6 +30,7 @@ random.seed(RANDOM_SEED)
 # ── Date helpers ───────────────────────────────────────────────────────────
 
 def date_range_days() -> int:
+    """Total days spanned by the generator's date range."""
     return (date(DATA_END_YEAR, 12, 31) - date(DATA_START_YEAR, 1, 1)).days
 
 
@@ -61,6 +62,8 @@ def seasonal_dates(n: int, peak_months: list[int] | None = None) -> pd.Series:
 
 
 def random_dates(n: int, start_year: int = DATA_START_YEAR, end_year: int = DATA_END_YEAR) -> pd.Series:
+    """n uniformly random dates within [start_year, end_year] — no
+    seasonality (see seasonal_dates() for that)."""
     start = date(start_year, 1, 1)
     end   = date(end_year, 12, 31)
     delta = (end - start).days
@@ -92,6 +95,7 @@ def lognormal(n: int, mean: float, sigma: float, outlier_rate: float = 0.03) -> 
 
 
 def clipped_normal(n: int, mean: float, std: float, low: float, high: float) -> np.ndarray:
+    """n normally-distributed values, clipped to [low, high]."""
     values = rng.normal(mean, std, n)
     return np.clip(np.round(values, 2), low, high)
 
@@ -140,10 +144,12 @@ TOP_CITIES = [
 
 
 def state_series(n: int) -> np.ndarray:
+    """n US state codes, imbalanced toward the more populous ones."""
     return imbalanced_categories(US_STATES, n, top_share=0.75)
 
 
 def city_series(n: int) -> np.ndarray:
+    """n US city names, imbalanced toward the more populous ones."""
     return imbalanced_categories(TOP_CITIES, n, top_share=0.80)
 
 
@@ -199,6 +205,7 @@ def generate_wide_columns(n_rows: int, n_extra: int, table_prefix: str) -> dict[
 # ── ID helpers ─────────────────────────────────────────────────────────────
 
 def sequential_ids(n: int, prefix: str = "") -> pd.Series:
+    """1..n as either zero-padded prefixed strings or plain integers."""
     if prefix:
         return pd.Series([f"{prefix}{i+1:08d}" for i in range(n)])
     return pd.Series(range(1, n + 1))
@@ -215,13 +222,16 @@ def foreign_keys(n: int, ref_max: int, null_rate: float = 0.0) -> pd.Series:
 # ── Misc ───────────────────────────────────────────────────────────────────
 
 def random_codes(n: int, length: int = 8) -> pd.Series:
+    """n random alphanumeric codes of the given length."""
     chars = string.ascii_uppercase + string.digits
     return pd.Series(["".join(random.choices(chars, k=length)) for _ in range(n)])
 
 
 def save_parquet(df: pd.DataFrame, path) -> None:
+    """Writes a DataFrame to `path` as snappy-compressed parquet."""
     df.to_parquet(path, index=False, engine="pyarrow", compression="snappy")
 
 
 def load_parquet(path) -> pd.DataFrame:
+    """Reads a parquet file back into a DataFrame."""
     return pd.read_parquet(path, engine="pyarrow")

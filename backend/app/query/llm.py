@@ -1,3 +1,6 @@
+"""Shared ChatOpenAI client for the query agent's tool-calling loop and
+its headline-generation call."""
+
 from functools import lru_cache
 from langchain_openai import ChatOpenAI
 
@@ -20,6 +23,7 @@ QUERY_LLM_TIMEOUT_SECONDS = 120
 
 @lru_cache
 def get_llm() -> ChatOpenAI:
+    """Cached ChatOpenAI client for the query agent."""
     return ChatOpenAI(
         model=LLM_MODEL,
         api_key=OPENROUTER_API_KEY,

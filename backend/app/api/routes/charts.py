@@ -23,6 +23,8 @@ MAX_CHART_IDS = 200
 
 
 def _check_dict_size(value: dict[str, Any]) -> dict[str, Any]:
+    """Pydantic field_validator — rejects a dict whose JSON size exceeds
+    MAX_DICT_BYTES (dicts can't use Field(max_length=...) directly)."""
     size = len(json.dumps(value, default=str))
     if size > MAX_DICT_BYTES:
         raise ValueError(f"payload too large ({size} bytes, max {MAX_DICT_BYTES})")
@@ -30,6 +32,8 @@ def _check_dict_size(value: dict[str, Any]) -> dict[str, Any]:
 
 
 class SaveChartRequest(BaseModel):
+    """Body for POST /api/charts — a chart the frontend already built."""
+
     title: str = Field(max_length=MAX_TEXT_LENGTH)
     question: str = Field(max_length=MAX_TEXT_LENGTH)
     sql: str = Field(max_length=MAX_TEXT_LENGTH)
@@ -42,6 +46,8 @@ class SaveChartRequest(BaseModel):
 
 
 class SaveDashboardRequest(BaseModel):
+    """Body for POST /api/dashboards — a named, ordered set of chart_ids."""
+
     title: str = Field(max_length=MAX_TEXT_LENGTH)
     chart_ids: list[str] = Field(max_length=MAX_CHART_IDS)
 
@@ -49,6 +55,7 @@ class SaveDashboardRequest(BaseModel):
 @router.post("/charts")
 @limiter.limit("20/minute")
 def create_chart(request: Request, body: SaveChartRequest):
+    """Saves a chart the frontend already built."""
     engine = get_engine()
     return save_chart(engine, body.title, body.question, body.sql, body.chart_type, body.chart_config, body.result_cache)
 
@@ -56,6 +63,7 @@ def create_chart(request: Request, body: SaveChartRequest):
 @router.get("/charts")
 @limiter.limit("20/minute")
 def get_charts_list(request: Request):
+    """All saved charts."""
     engine = get_engine()
     return {"charts": list_charts(engine)}
 
@@ -63,6 +71,7 @@ def get_charts_list(request: Request):
 @router.get("/charts/{chart_id}")
 @limiter.limit("20/minute")
 def get_one_chart(request: Request, chart_id: str):
+    """One saved chart, or 404."""
     engine = get_engine()
     chart = get_chart(engine, chart_id)
     if chart is None:
@@ -73,6 +82,7 @@ def get_one_chart(request: Request, chart_id: str):
 @router.post("/dashboards")
 @limiter.limit("20/minute")
 def create_dashboard(request: Request, body: SaveDashboardRequest):
+    """Saves a dashboard (a named group of already-saved chart_ids)."""
     engine = get_engine()
     return save_dashboard(engine, body.title, body.chart_ids)
 
@@ -80,6 +90,7 @@ def create_dashboard(request: Request, body: SaveDashboardRequest):
 @router.get("/dashboards")
 @limiter.limit("20/minute")
 def get_dashboards_list(request: Request):
+    """All saved dashboards."""
     engine = get_engine()
     return {"dashboards": list_dashboards(engine)}
 
@@ -87,6 +98,7 @@ def get_dashboards_list(request: Request):
 @router.get("/dashboards/{dashboard_id}")
 @limiter.limit("20/minute")
 def get_one_dashboard(request: Request, dashboard_id: str):
+    """One dashboard with its charts hydrated, or 404."""
     engine = get_engine()
     dashboard = get_dashboard(engine, dashboard_id)
     if dashboard is None:

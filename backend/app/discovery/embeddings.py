@@ -1,3 +1,7 @@
+"""Embeds table/column descriptions into pgvector (public.table_embeddings /
+column_embeddings) and reads them back for the /data pages and the query
+agent's semantic search."""
+
 import json
 from functools import lru_cache
 from langchain_openai import OpenAIEmbeddings
@@ -12,6 +16,7 @@ log = get_logger(__name__)
 
 @lru_cache
 def get_embeddings():
+    """Cached OpenAIEmbeddings client, routed through OpenRouter."""
     # OpenRouter also exposes an embeddings route via its OpenAI-compatible
     # endpoint — same key/base_url as the LLM, no separate provider needed.
     return OpenAIEmbeddings(
@@ -141,24 +146,28 @@ def refresh_profiles(engine: Engine, table_name: str, profiles: dict, row_count:
 
 
 def list_table_descriptions(engine: Engine) -> list[dict]:
+    """Every discovered table's description + row/column counts."""
     with engine.connect() as conn:
         rows = conn.execute(text(queries.load("embeddings_list_tables"))).mappings().all()
     return [dict(r) for r in rows]
 
 
 def get_table_description(engine: Engine, table_name: str) -> dict | None:
+    """One table's description + row/column counts, or None if undiscovered."""
     with engine.connect() as conn:
         row = conn.execute(text(queries.load("embeddings_get_table")), {"t": table_name}).mappings().first()
     return dict(row) if row else None
 
 
 def get_column_descriptions(engine: Engine, table_name: str) -> list[dict]:
+    """Every column's description + profile for one table."""
     with engine.connect() as conn:
         rows = conn.execute(text(queries.load("embeddings_list_columns")), {"t": table_name}).mappings().all()
     return [dict(r) for r in rows]
 
 
 def get_overview_stats(engine: Engine) -> dict:
+    """Schema-wide totals (table/column/row counts) for the /data landing page."""
     with engine.connect() as conn:
         row = conn.execute(text(queries.load("embeddings_overview_stats"))).mappings().first()
     return dict(row)

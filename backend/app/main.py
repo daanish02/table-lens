@@ -1,3 +1,6 @@
+"""FastAPI app entrypoint: wires up CORS, rate limiting, the global
+exception handler, and every route module."""
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -18,6 +21,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 @app.exception_handler(Exception)
 async def log_unhandled_exception(request: Request, exc: Exception):
+    """Logs any exception FastAPI's own handlers didn't catch, then
+    returns the same generic 500 FastAPI would've given anyway."""
     # FastAPI's default behavior only prints unhandled exceptions to
     # uvicorn's own stderr, which this app's rotating file logger never
     # sees and which a restarted process loses entirely — making this class
@@ -40,4 +45,5 @@ app.include_router(visualize_router)
 
 @app.get("/health")
 def health():
+    """Liveness check — used by the Dockerfile HEALTHCHECK."""
     return {"status": "ok"}

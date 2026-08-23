@@ -39,6 +39,7 @@ def generate_financial_periods() -> pd.DataFrame:
 
 
 def generate_general_ledger() -> pd.DataFrame:
+    """Synthetic general-ledger entry records."""
     n = ROW_COUNTS["general_ledger"]
     n_periods = ROW_COUNTS["financial_periods"]
 
@@ -81,6 +82,7 @@ def generate_general_ledger() -> pd.DataFrame:
 
 
 def generate_invoices() -> pd.DataFrame:
+    """Synthetic invoice records."""
     n = ROW_COUNTS["invoices"]
     n_policies  = ROW_COUNTS["policies"]
     n_customers = ROW_COUNTS["customers"]
@@ -111,6 +113,7 @@ def generate_invoices() -> pd.DataFrame:
 
 
 def generate_refunds() -> pd.DataFrame:
+    """Synthetic refund records."""
     n = ROW_COUNTS["refunds"]
     n_policies  = ROW_COUNTS["policies"]
     n_claims    = ROW_COUNTS["claims"]
@@ -135,6 +138,7 @@ def generate_refunds() -> pd.DataFrame:
 
 
 def generate_commissions() -> pd.DataFrame:
+    """Synthetic agent commission records."""
     n = ROW_COUNTS["commissions"]
     n_agents   = ROW_COUNTS["agents"]
     n_policies = ROW_COUNTS["policies"]
@@ -170,6 +174,7 @@ def generate_commissions() -> pd.DataFrame:
 
 
 def generate_tax_records() -> pd.DataFrame:
+    """Synthetic tax record entries."""
     n = ROW_COUNTS["tax_records"]
     n_policies  = ROW_COUNTS["policies"]
     n_customers = ROW_COUNTS["customers"]
@@ -194,6 +199,7 @@ def generate_tax_records() -> pd.DataFrame:
 
 
 def generate_reserve_estimates() -> pd.DataFrame:
+    """Synthetic claim reserve-estimate records."""
     n = ROW_COUNTS["reserve_estimates"]
     n_claims = ROW_COUNTS["claims"]
     reserve_types = ["CASE", "IBNR", "BULK", "CATASTROPHE"]
@@ -220,6 +226,7 @@ def generate_reserve_estimates() -> pd.DataFrame:
 # ── OPERATIONS ─────────────────────────────────────────────────────────────
 
 def generate_audit_logs() -> pd.DataFrame:
+    """Synthetic system audit-log records."""
     n = ROW_COUNTS["audit_logs"]
     actions      = ["CREATE", "UPDATE", "DELETE", "VIEW", "EXPORT", "LOGIN", "LOGOUT",
                     "APPROVE", "REJECT", "SUBMIT", "PRINT"]
@@ -246,6 +253,7 @@ def generate_audit_logs() -> pd.DataFrame:
 
 
 def generate_complaints() -> pd.DataFrame:
+    """Synthetic customer complaint records."""
     n = ROW_COUNTS["complaints"]
     n_customers = ROW_COUNTS["customers"]
     n_policies  = ROW_COUNTS["policies"]
@@ -274,6 +282,7 @@ def generate_complaints() -> pd.DataFrame:
 
 
 def generate_regulatory_filings() -> pd.DataFrame:
+    """Synthetic regulatory filing records."""
     n = ROW_COUNTS["regulatory_filings"]
     filing_types  = ["ANNUAL_RETURN", "QUARTERLY_REPORT", "SOLVENCY_II", "AML_REPORT",
                      "COMPLAINTS_REPORT", "MARKET_CONDUCT", "PREMIUM_TAX_RETURN"]
@@ -299,6 +308,7 @@ def generate_regulatory_filings() -> pd.DataFrame:
 
 
 def generate_compliance_checks() -> pd.DataFrame:
+    """Synthetic compliance-check records."""
     n = ROW_COUNTS["compliance_checks"]
     n_customers = ROW_COUNTS["customers"]
     check_types = ["AML", "SANCTIONS", "PEP", "KYC", "FRAUD_SCREEN"]
@@ -319,6 +329,7 @@ def generate_compliance_checks() -> pd.DataFrame:
 
 
 def generate_call_center_interactions() -> pd.DataFrame:
+    """Synthetic call-center interaction records."""
     n = ROW_COUNTS["call_center_interactions"]
     n_customers = ROW_COUNTS["customers"]
     n_agents    = ROW_COUNTS["agents"]
@@ -360,6 +371,7 @@ def generate_call_center_interactions() -> pd.DataFrame:
 
 
 def generate_notifications() -> pd.DataFrame:
+    """Synthetic customer notification records."""
     n = ROW_COUNTS["notifications"]
     n_customers = ROW_COUNTS["customers"]
     n_policies  = ROW_COUNTS["policies"]
@@ -387,6 +399,7 @@ def generate_notifications() -> pd.DataFrame:
 
 
 def generate_system_config() -> pd.DataFrame:
+    """Synthetic system configuration key/value records."""
     n = ROW_COUNTS["system_config"]
     config_types = ["STRING", "INTEGER", "BOOLEAN", "JSON", "DATE"]
     keys = [

@@ -13,10 +13,14 @@ __all__ = ["column_signature"]
 
 
 def _round(v: float | None, digits: int) -> float | None:
+    """Rounds, passing through None — floating-point noise across runs
+    shouldn't register as a "changed" column."""
     return round(v, digits) if v is not None else None
 
 
 def _normalize(v: object) -> str | None:
+    """Stringifies a profile value consistently regardless of whether it's
+    a live Python object or already round-tripped through JSONB."""
     # A live profile's min/max can be a real datetime.date/datetime object
     # (str() renders it as "2015-01-01 00:00:00", space-separated); the same
     # value read back out of the profile JSONB column is already a plain
@@ -34,6 +38,9 @@ def _normalize(v: object) -> str | None:
 
 
 def column_signature(column: ColumnInfo, profile: ColumnProfile) -> str:
+    """Deterministic hash of one column's structure + stats — two calls
+    for the same underlying data (even across runs) produce the same
+    hash, so a mismatch means the column genuinely changed."""
     # row_count always comes from an exact COUNT(*) (see profiler._row_count)
     # — never sampled, safe to hash unconditionally as a cheap proxy for
     # "did this table's data change at all."

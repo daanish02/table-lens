@@ -24,6 +24,8 @@ log = get_logger(__name__)
 
 
 def _backfill_one(engine, schema: str, table) -> None:
+    """Re-profiles one already-described table and writes the stats
+    columns that were missing when it was first described."""
     profiles = profile_table(engine, schema, table)
     row_count = next(iter(profiles.values())).row_count if profiles else None
 
@@ -42,6 +44,7 @@ def _backfill_one(engine, schema: str, table) -> None:
 
 
 def backfill_profile_stats(schema: str = DEMO_SCHEMA) -> None:
+    """Entry point — backfills every already-described table in `schema`."""
     engine = get_engine()
     already_described = {row["table_name"] for row in list_table_descriptions(engine)}
     tables = [t for t in get_schema_snapshot(engine, schema) if t.name in already_described]

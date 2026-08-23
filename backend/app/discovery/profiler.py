@@ -1,3 +1,8 @@
+"""Computes per-column statistics (null rate, distinct count, min/max,
+percentiles, top values, histograms) for a table already introspected by
+introspect.py. Large tables get sampled via TABLESAMPLE instead of a full
+scan — see _source()."""
+
 from pydantic import BaseModel, Field
 from sqlalchemy import text, Engine
 
@@ -16,6 +21,10 @@ DATE_TYPES = {"date", "timestamp without time zone", "timestamp with time zone",
 
 
 class ColumnProfile(BaseModel):
+    """One column's computed statistics. Fields beyond row_count/null_rate/
+    distinct_count are type-dependent — numeric columns get mean/percentiles/
+    histogram, date columns get min/max only, categorical get top_values."""
+
     # Not frozen — fields below are filled in progressively after
     # construction as different stats queries complete (see profile_table).
     row_count: int
@@ -31,16 +40,21 @@ class ColumnProfile(BaseModel):
 
 
 def _source(schema: str, table: str, row_count: int) -> str:
+    """FROM-clause source for this table — a TABLESAMPLE subquery once
+    the table exceeds DISCOVERY_LARGE_TABLE_ROWS, otherwise the bare table."""
     if row_count > DISCOVERY_LARGE_TABLE_ROWS:
         return f"(SELECT * FROM {schema}.{table} TABLESAMPLE BERNOULLI({DISCOVERY_SAMPLE_PCT})) sampled"
     return f"{schema}.{table}"
 
 
 def _row_count(conn, schema: str, table: str) -> int:
+    """Exact row count (never sampled — used to decide whether to sample
+    everything else)."""
     return conn.execute(text(queries.load("profiler_row_count").format(schema=schema, table=table))).scalar()
 
 
 def _chunks(items: list, size: int):
+    """Yields successive `size`-length slices of `items`."""
     for i in range(0, len(items), size):
         yield items[i:i + size]
 
@@ -89,6 +103,12 @@ def _profile_batch(conn, source: str, row_count: int, cols: list) -> dict[str, C
 
 
 def profile_table(engine: Engine, schema: str, table: TableInfo) -> dict:
+    """Full profile for every column in `table`: batched stats, then
+    top-values (categorical) and histograms (numeric) in separate passes.
+
+    Returns:
+        {column_name: ColumnProfile}
+    """
     log.info(f"profiling table: {table.name}")
     profiles: dict[str, ColumnProfile] = {}
 

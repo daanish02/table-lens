@@ -85,6 +85,8 @@ def generate_table(table_name: str, force: bool = False) -> bool:
 
 
 def show_status() -> None:
+    """Prints a table of every table's generation status (row count,
+    parquet size, when it was generated)."""
     manifest = status()
     t = Table(title="Generation Manifest", show_lines=True)
     t.add_column("Table", style="cyan")
@@ -113,6 +115,7 @@ def show_status() -> None:
 
 
 def main() -> None:
+    """CLI entry point — see --help for the available flags."""
     parser = argparse.ArgumentParser(description="Insurance synthetic data generator")
     parser.add_argument("--table",     help="Generate (or re-generate) a single table by name")
     parser.add_argument("--reset-all", action="store_true", help="Clear manifest and regenerate everything")

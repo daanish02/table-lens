@@ -12,6 +12,7 @@ from generators.base import (
 
 
 def generate_underwriting_assessments() -> pd.DataFrame:
+    """Synthetic underwriting-assessment records."""
     n = ROW_COUNTS["underwriting_assessments"]
     n_policies  = ROW_COUNTS["policies"]
     n_customers = ROW_COUNTS["customers"]
@@ -55,6 +56,7 @@ def generate_underwriting_assessments() -> pd.DataFrame:
 
 
 def generate_risk_scores() -> pd.DataFrame:
+    """Synthetic risk-score records."""
     n = ROW_COUNTS["risk_scores"]
     n_customers = ROW_COUNTS["customers"]
     score_types = ["CREDIT", "FRAUD", "CHURN", "CLAIMS", "OVERALL"]
@@ -84,6 +86,7 @@ def generate_risk_scores() -> pd.DataFrame:
 
 
 def generate_quote_attempts() -> pd.DataFrame:
+    """Synthetic insurance-quote-attempt records."""
     n = ROW_COUNTS["quote_attempts"]
     n_customers = ROW_COUNTS["customers"]
     n_products  = ROW_COUNTS["products"]
@@ -127,6 +130,7 @@ def generate_quote_attempts() -> pd.DataFrame:
 
 
 def generate_credit_checks() -> pd.DataFrame:
+    """Synthetic credit-check records."""
     n = ROW_COUNTS["credit_checks"]
     n_customers = ROW_COUNTS["customers"]
     bureaus = ["EQUIFAX", "EXPERIAN", "TRANSUNION"]
@@ -153,6 +157,7 @@ def generate_credit_checks() -> pd.DataFrame:
 
 
 def generate_inspection_reports() -> pd.DataFrame:
+    """Synthetic property/risk inspection report records."""
     n = ROW_COUNTS["inspection_reports"]
     n_policies = ROW_COUNTS["policies"]
     conditions = ["EXCELLENT", "GOOD", "FAIR", "POOR", "CONDEMNED"]
@@ -172,6 +177,7 @@ def generate_inspection_reports() -> pd.DataFrame:
 
 
 def generate_exclusions() -> pd.DataFrame:
+    """Synthetic policy exclusion-clause records."""
     n = ROW_COUNTS["exclusions"]
     n_policies = ROW_COUNTS["policies"]
     excl_types = ["PRE_EXISTING_CONDITION", "WEAR_AND_TEAR", "INTENTIONAL_DAMAGE",
@@ -189,6 +195,7 @@ def generate_exclusions() -> pd.DataFrame:
 
 
 def generate_reinsurance_treaties() -> pd.DataFrame:
+    """Synthetic reinsurance-treaty records."""
     n = ROW_COUNTS["reinsurance_treaties"]
     treaty_types = ["QUOTA_SHARE", "EXCESS_LOSS", "FACULTATIVE", "STOP_LOSS"]
     reinsurers   = ["Munich Re", "Swiss Re", "Hannover Re", "SCOR", "Gen Re",
@@ -210,6 +217,7 @@ def generate_reinsurance_treaties() -> pd.DataFrame:
 
 
 def generate_reinsurance_claims() -> pd.DataFrame:
+    """Synthetic reinsurance-claim-share records."""
     n = ROW_COUNTS["reinsurance_claims"]
     n_claims  = ROW_COUNTS["claims"]
     n_treaties = ROW_COUNTS["reinsurance_treaties"]

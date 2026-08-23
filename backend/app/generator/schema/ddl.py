@@ -919,6 +919,7 @@ CREATE TABLE IF NOT EXISTS system_config (
 
 
 def get_ddl(table_name: str, schema: str = "public") -> str:
+    """One table's CREATE TABLE statement, qualified to `schema`."""
     ddl = TABLES[table_name]
     return ddl.replace(
         f"CREATE TABLE IF NOT EXISTS {table_name}",
@@ -928,4 +929,5 @@ def get_ddl(table_name: str, schema: str = "public") -> str:
 
 
 def all_table_names() -> list[str]:
+    """Every table name this schema defines DDL for."""
     return list(TABLES.keys())

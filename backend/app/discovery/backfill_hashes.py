@@ -25,6 +25,8 @@ log = get_logger(__name__)
 
 
 def backfill_content_hashes(schema: str = DEMO_SCHEMA) -> None:
+    """Entry point — computes content_hash for every existing column
+    that's missing one, from its already-stored profile JSON."""
     engine = get_engine()
     tables_by_name = {t.name: t for t in get_schema_snapshot(engine, schema)}
 

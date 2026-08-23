@@ -11,6 +11,8 @@ ALLOWED_CHART_TYPES = {"line", "bar", "pie", "scatter", "stat"}
 
 
 class ChartValidationError(ValueError):
+    """Raised when a generated chart spec fails validate_chart_spec()."""
+
     pass
 
 
@@ -81,6 +83,9 @@ def _normalize_layout(option: dict) -> None:
 
 
 def validate_chart_spec(spec: dict) -> dict:
+    """Validates + normalizes a generated chart spec in place (stripping
+    unusable JS-function strings, auto-fixing known layout collisions),
+    raising ChartValidationError if it's structurally unusable."""
     if not isinstance(spec, dict):
         raise ChartValidationError("chart spec must be a JSON object")
 

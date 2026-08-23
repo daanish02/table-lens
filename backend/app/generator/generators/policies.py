@@ -12,6 +12,7 @@ from generators.base import (
 
 
 def generate_products() -> pd.DataFrame:
+    """Synthetic insurance product records."""
     n = ROW_COUNTS["products"]
     categories = ["AUTO", "HOME", "LIFE", "HEALTH", "COMMERCIAL", "TRAVEL", "LIABILITY"]
     rows = []
@@ -36,6 +37,7 @@ def generate_products() -> pd.DataFrame:
 
 
 def generate_policies() -> pd.DataFrame:
+    """Synthetic policy records, one row per policy."""
     n = ROW_COUNTS["policies"]
     n_customers = ROW_COUNTS["customers"]
     n_products  = ROW_COUNTS["products"]
@@ -112,6 +114,7 @@ def generate_policies() -> pd.DataFrame:
 
 
 def generate_policy_versions() -> pd.DataFrame:
+    """Synthetic policy version-history records."""
     n = ROW_COUNTS["policy_versions"]
     n_policies = ROW_COUNTS["policies"]
     change_types = ["ENDORSEMENT", "RENEWAL", "CORRECTION", "CANCELLATION", "REINSTATEMENT"]
@@ -135,6 +138,7 @@ def generate_policy_versions() -> pd.DataFrame:
 
 
 def generate_policy_endorsements() -> pd.DataFrame:
+    """Synthetic policy endorsement (mid-term change) records."""
     n = ROW_COUNTS["policy_endorsements"]
     n_policies = ROW_COUNTS["policies"]
     types = ["ADD_DRIVER", "ADD_PROPERTY", "INCREASE_LIMIT", "REDUCE_DEDUCTIBLE",
@@ -155,6 +159,7 @@ def generate_policy_endorsements() -> pd.DataFrame:
 
 
 def generate_policy_documents() -> pd.DataFrame:
+    """Synthetic policy document/attachment metadata records."""
     n = ROW_COUNTS["policy_documents"]
     n_policies = ROW_COUNTS["policies"]
     doc_types = ["POLICY_SCHEDULE", "CERTIFICATE", "ENDORSEMENT", "RENEWAL_NOTICE",
@@ -175,6 +180,7 @@ def generate_policy_documents() -> pd.DataFrame:
 
 
 def generate_policy_payments() -> pd.DataFrame:
+    """Synthetic policy premium-payment records."""
     n = ROW_COUNTS["policy_payments"]
     n_policies  = ROW_COUNTS["policies"]
     n_customers = ROW_COUNTS["customers"]
@@ -211,6 +217,7 @@ def generate_policy_payments() -> pd.DataFrame:
 
 
 def generate_policy_cancellations() -> pd.DataFrame:
+    """Synthetic policy cancellation records."""
     n = ROW_COUNTS["policy_cancellations"]
     n_policies  = ROW_COUNTS["policies"]
     n_customers = ROW_COUNTS["customers"]
@@ -232,6 +239,7 @@ def generate_policy_cancellations() -> pd.DataFrame:
 
 
 def generate_policy_renewals() -> pd.DataFrame:
+    """Synthetic policy renewal records."""
     n = ROW_COUNTS["policy_renewals"]
     n_policies  = ROW_COUNTS["policies"]
     n_customers = ROW_COUNTS["customers"]
@@ -261,6 +269,7 @@ def generate_policy_renewals() -> pd.DataFrame:
 
 
 def generate_coverage_details() -> pd.DataFrame:
+    """Synthetic per-policy coverage-line-item records."""
     n = ROW_COUNTS["coverage_details"]
     n_policies = ROW_COUNTS["policies"]
 
@@ -300,6 +309,7 @@ def generate_coverage_details() -> pd.DataFrame:
 
 
 def generate_product_pricing_rules() -> pd.DataFrame:
+    """Synthetic product pricing-rule records."""
     n = ROW_COUNTS["product_pricing_rules"]
     n_products = ROW_COUNTS["products"]
     rule_types   = ["LOADING", "DISCOUNT", "BASE"]

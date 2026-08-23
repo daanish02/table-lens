@@ -12,6 +12,7 @@ from generators.base import (
 
 
 def generate_claims() -> pd.DataFrame:
+    """Synthetic claims records, one row per claim."""
     n = ROW_COUNTS["claims"]
     n_policies  = ROW_COUNTS["policies"]
     n_customers = ROW_COUNTS["customers"]
@@ -72,6 +73,7 @@ def generate_claims() -> pd.DataFrame:
 
 
 def generate_claim_events() -> pd.DataFrame:
+    """Synthetic claim event/audit-trail records."""
     n = ROW_COUNTS["claim_events"]
     n_claims = ROW_COUNTS["claims"]
 
@@ -101,6 +103,7 @@ def generate_claim_events() -> pd.DataFrame:
 
 
 def generate_claim_payments() -> pd.DataFrame:
+    """Synthetic claim payment records."""
     n = ROW_COUNTS["claim_payments"]
     n_claims    = ROW_COUNTS["claims"]
     n_policies  = ROW_COUNTS["policies"]
@@ -129,6 +132,7 @@ def generate_claim_payments() -> pd.DataFrame:
 
 
 def generate_claim_documents() -> pd.DataFrame:
+    """Synthetic claim document/attachment metadata records."""
     n = ROW_COUNTS["claim_documents"]
     n_claims = ROW_COUNTS["claims"]
     doc_types = ["POLICE_REPORT", "MEDICAL_REPORT", "PHOTO_EVIDENCE", "REPAIR_ESTIMATE",
@@ -149,6 +153,7 @@ def generate_claim_documents() -> pd.DataFrame:
 
 
 def generate_claim_assessments() -> pd.DataFrame:
+    """Synthetic claim coverage-assessment records."""
     n = ROW_COUNTS["claim_assessments"]
     n_claims = ROW_COUNTS["claims"]
     decisions = ["COVERED", "PARTIAL", "EXCLUDED", "PENDING"]
@@ -171,6 +176,7 @@ def generate_claim_assessments() -> pd.DataFrame:
 
 
 def generate_claim_fraud_flags() -> pd.DataFrame:
+    """Synthetic claim fraud-flag/investigation records."""
     n = ROW_COUNTS["claim_fraud_flags"]
     n_claims = ROW_COUNTS["claims"]
     flag_types = ["DUPLICATE_CLAIM", "STAGED_ACCIDENT", "INFLATED_AMOUNT",
@@ -193,6 +199,7 @@ def generate_claim_fraud_flags() -> pd.DataFrame:
 
 
 def generate_claim_litigations() -> pd.DataFrame:
+    """Synthetic claim litigation/legal-case records."""
     n = ROW_COUNTS["claim_litigations"]
     n_claims = ROW_COUNTS["claims"]
     statuses = ["FILED", "IN_DISCOVERY", "TRIAL", "SETTLED", "DISMISSED", "JUDGMENT"]
@@ -215,6 +222,7 @@ def generate_claim_litigations() -> pd.DataFrame:
 
 
 def generate_repair_shops() -> pd.DataFrame:
+    """Synthetic repair-shop directory records."""
     n = ROW_COUNTS["repair_shops"]
     shop_types = ["AUTO", "PROPERTY", "MEDICAL", "GENERAL"]
 
@@ -234,6 +242,7 @@ def generate_repair_shops() -> pd.DataFrame:
 
 
 def generate_claim_repairs() -> pd.DataFrame:
+    """Synthetic claim repair-job records."""
     n = ROW_COUNTS["claim_repairs"]
     n_claims = ROW_COUNTS["claims"]
     n_shops  = ROW_COUNTS["repair_shops"]
@@ -258,6 +267,7 @@ def generate_claim_repairs() -> pd.DataFrame:
 
 
 def generate_medical_reports() -> pd.DataFrame:
+    """Synthetic medical-report records tied to claims."""
     n = ROW_COUNTS["medical_reports"]
     n_claims    = ROW_COUNTS["claims"]
     n_customers = ROW_COUNTS["customers"]

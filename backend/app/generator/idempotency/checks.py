@@ -21,6 +21,7 @@ from config import MANIFEST
 
 
 def _load_manifest() -> dict:
+    """Reads the manifest JSON, or {} if it doesn't exist yet."""
     if MANIFEST.exists():
         with open(MANIFEST) as f:
             return json.load(f)
@@ -28,11 +29,13 @@ def _load_manifest() -> dict:
 
 
 def _save_manifest(manifest: dict) -> None:
+    """Writes the manifest back to disk as JSON."""
     with open(MANIFEST, "w") as f:
         json.dump(manifest, f, indent=2, default=str)
 
 
 def schema_hash(ddl: str) -> str:
+    """Deterministic hash of a table's DDL string, for change detection."""
     return hashlib.md5(ddl.strip().encode()).hexdigest()
 
 

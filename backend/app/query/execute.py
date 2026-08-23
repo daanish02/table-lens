@@ -14,6 +14,7 @@ STATEMENT_TIMEOUT_MS = 15_000  # belt-and-suspenders against a pathological quer
 
 
 def run_query(engine: Engine, sql: str) -> dict:
+    """Runs one already-validated SELECT, capped by STATEMENT_TIMEOUT_MS."""
     log.info(f"executing: {sql}")
     with engine.connect() as conn:
         conn.execute(text(f"SET LOCAL statement_timeout = {STATEMENT_TIMEOUT_MS}"))

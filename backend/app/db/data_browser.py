@@ -16,6 +16,16 @@ MAX_PAGE_SIZE = 200
 
 
 def browse_table(engine: Engine, table_name: str, page: int, page_size: int, schema: str = DEMO_SCHEMA) -> dict:
+    """One page of a table's raw rows, ordered by primary key (or the
+    first column if there isn't one).
+
+    Args:
+        table_name: Must be a real table in `schema` — raises ValueError
+            otherwise.
+
+    Returns:
+        table/page/page_size/total_rows/columns/rows.
+    """
     page = max(page, 1)
     page_size = min(max(page_size, 1), MAX_PAGE_SIZE)
 

@@ -23,11 +23,15 @@ MAX_HISTORY_TURNS = 20
 
 
 class HistoryTurn(BaseModel):
+    """One prior message in the conversation, fed back to the agent for context."""
+
     role: str  # "user" or "assistant"
     content: str = Field(max_length=MAX_TEXT_LENGTH)
 
 
 class QueryRequest(BaseModel):
+    """Body for POST /api/query."""
+
     question: str = Field(max_length=MAX_TEXT_LENGTH)
     history: list[HistoryTurn] = Field(default_factory=list, max_length=MAX_HISTORY_TURNS)
 
@@ -35,11 +39,15 @@ class QueryRequest(BaseModel):
 @router.post("")
 @limiter.limit("20/minute")
 def query(request: Request, body: QueryRequest):
+    """SSE stream of the query agent's progress and final answer for one
+    question. See ask_stream() for the event shapes."""
     engine = get_engine(readonly=True)
     history = [(turn.role, turn.content) for turn in body.history]
     started = time.monotonic()
 
     def event_source():
+        """Wraps ask_stream() as SSE `data: {...}\\n\\n` lines, guaranteeing
+        a terminal "done" event even if something inside fails."""
         try:
             for event in ask_stream(engine, body.question, history=history):
                 if event["type"] == "done":

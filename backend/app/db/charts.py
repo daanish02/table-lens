@@ -24,6 +24,8 @@ def save_chart(
     chart_config: dict,
     result_cache: dict,
 ) -> dict:
+    """Inserts one saved chart, returns the stored row (including its
+    generated id)."""
     with engine.connect() as conn:
         row = conn.execute(
             text(queries.load("charts_insert")),
@@ -38,18 +40,22 @@ def save_chart(
 
 
 def list_charts(engine: Engine) -> list[dict]:
+    """All saved charts, most recent first."""
     with engine.connect() as conn:
         rows = conn.execute(text(queries.load("charts_list"))).mappings().all()
     return [dict(r) for r in rows]
 
 
 def get_chart(engine: Engine, chart_id: str) -> dict | None:
+    """One saved chart by id, or None if it doesn't exist."""
     with engine.connect() as conn:
         row = conn.execute(text(queries.load("charts_get")), {"id": chart_id}).mappings().first()
     return dict(row) if row else None
 
 
 def get_charts(engine: Engine, chart_ids: list[str]) -> list[dict]:
+    """Batch fetch — used to hydrate a dashboard's chart_ids into full
+    chart rows."""
     if not chart_ids:
         return []
     with engine.connect() as conn:
@@ -58,6 +64,8 @@ def get_charts(engine: Engine, chart_ids: list[str]) -> list[dict]:
 
 
 def save_dashboard(engine: Engine, title: str, chart_ids: list[str]) -> dict:
+    """Inserts one dashboard (an ordered list of chart_ids), returns the
+    stored row."""
     with engine.connect() as conn:
         row = conn.execute(
             text(queries.load("dashboards_insert")), {"title": title, "chart_ids": chart_ids}
@@ -68,12 +76,14 @@ def save_dashboard(engine: Engine, title: str, chart_ids: list[str]) -> dict:
 
 
 def list_dashboards(engine: Engine) -> list[dict]:
+    """All saved dashboards, most recent first."""
     with engine.connect() as conn:
         rows = conn.execute(text(queries.load("dashboards_list"))).mappings().all()
     return [dict(r) for r in rows]
 
 
 def get_dashboard(engine: Engine, dashboard_id: str) -> dict | None:
+    """One dashboard by id, or None if it doesn't exist."""
     with engine.connect() as conn:
         row = conn.execute(text(queries.load("dashboards_get")), {"id": dashboard_id}).mappings().first()
     return dict(row) if row else None

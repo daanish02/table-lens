@@ -1,3 +1,7 @@
+"""LLM calls the discovery pipeline makes: one to describe a table, one
+per column. No tool-calling here — discovery is a fixed pipeline, not an
+agent (see docs/PRD.md for why discovery and the query agent differ)."""
+
 from functools import lru_cache
 from langchain_openai import ChatOpenAI
 
@@ -11,6 +15,7 @@ log = get_logger(__name__)
 
 @lru_cache
 def _get_llm():
+    """Cached ChatOpenAI client for discovery's LLM calls."""
     # OpenRouter exposes an OpenAI-compatible endpoint — ChatOpenAI works
     # unmodified against it via base_url. Model swap = change LLM_MODEL only.
     # timeout=60: without it a single stuck call can hang for the SDK's own
@@ -28,6 +33,10 @@ def _get_llm():
 
 
 def describe_table(table: TableInfo, profiles: dict, sibling_tables: list[str] | None = None) -> str:
+    """One LLM call: a plain-English description of what this table is
+    for, given its columns and their profiled stats. sibling_tables gives
+    the model domain context so an ambiguous name (e.g. "agents") isn't
+    guessed generically."""
     col_summary = ", ".join(
         f"{c.name} ({c.data_type}, null_rate={profiles[c.name].null_rate:.2f})"
         for c in table.columns if c.name in profiles
@@ -43,6 +52,8 @@ def describe_table(table: TableInfo, profiles: dict, sibling_tables: list[str] |
 
 
 def describe_column(table_name: str, column: ColumnInfo, profile) -> str:
+    """One LLM call: a plain-English description of one column, given its
+    type and profiled stats."""
     stats = f"null_rate={profile.null_rate:.2f}, distinct={profile.distinct_count}"
     if profile.mean_value is not None:
         stats += f", mean={profile.mean_value}"
