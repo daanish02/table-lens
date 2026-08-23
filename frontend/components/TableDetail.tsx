@@ -323,6 +323,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     lineHeight: 1.6,
     color: "var(--text-dim)",
+    textAlign: "justify",
   },
   tableMetaStats: {
     display: "flex",
