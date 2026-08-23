@@ -36,7 +36,7 @@ class ColumnProfile(BaseModel):
     p50: float | None = None
     p95: float | None = None
     top_values: list[tuple] = Field(default_factory=list)
-    histogram: list[tuple] = Field(default_factory=list)  # numeric only: (bucket_min_value, count)
+    histogram: list[tuple] = Field(default_factory=list)  # numeric only: (bucket_min, bucket_max, count)
 
 
 def _source(schema: str, table: str, row_count: int) -> str:
@@ -149,13 +149,22 @@ def profile_table(engine: Engine, schema: str, table: TableInfo) -> dict:
                 if profile.distinct_count <= 1 or profile.min_value is None or profile.max_value == profile.min_value:
                     continue
                 buckets = min(DISCOVERY_HISTOGRAM_MAX_BUCKETS, profile.distinct_count)
-                rows = conn.execute(text(
-                    queries.load("profiler_histogram").format(
+                if profile.distinct_count <= DISCOVERY_HISTOGRAM_MAX_BUCKETS:
+                    # One bar per exact value instead of continuous
+                    # width_bucket ranges — width_bucket doesn't align
+                    # bucket boundaries to integers, so distinct values can
+                    # silently merge into the same bucket even when bucket
+                    # count equals distinct count, producing misleadingly
+                    # uneven axis labels (e.g. 1,2,3...9,12,15,21 instead
+                    # of 1..21).
+                    sql = queries.load("profiler_histogram_exact").format(column=col.name, source=source)
+                else:
+                    sql = queries.load("profiler_histogram").format(
                         column=col.name, source=source,
                         min_val=profile.min_value, max_val=profile.max_value, buckets=buckets,
                     )
-                )).all()
-                profile.histogram = [(r[2], r[1]) for r in rows]
+                rows = conn.execute(text(sql)).all()
+                profile.histogram = [(r[0], r[1], r[2]) for r in rows]
 
     log.info(f"profiled table {table.name}: {len(profiles)} columns")
     return profiles

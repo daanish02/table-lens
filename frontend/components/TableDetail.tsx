@@ -31,7 +31,7 @@ type ColumnProfile = {
   p50: number | null;
   p95: number | null;
   top_values: [unknown, number][];
-  histogram: [number, number][];
+  histogram: [number, number, number][]; // [bucket_min, bucket_max, count]
 };
 
 type ColumnResult = {
@@ -206,28 +206,41 @@ function ColumnCard({ col }: { col: ColumnResult }) {
   return (
     <div style={styles.columnCard}>
       <div style={styles.columnCardName}>{col.column_name}</div>
-      {col.description && <div style={styles.columnCardDesc}>{col.description}</div>}
-
-      {hasHistogram && (
-        <ProfileBarChart
-          labels={profile!.histogram.map(([edge]) => formatAxisNumber(edge))}
-          counts={profile!.histogram.map(([, c]) => c)}
-        />
+      {col.description && (
+        <>
+          <div style={styles.columnCardDesc}>{col.description}</div>
+          <div style={styles.columnCardDivider} />
+        </>
       )}
-      {hasTopValues && (
-        <ProfileBarChart
-          labels={profile!.top_values.map(([v]) => String(v))}
-          counts={profile!.top_values.map(([, c]) => c)}
-        />
+
+      <div style={styles.columnCardSpacer} />
+
+      {(hasHistogram || hasTopValues) && (
+        <div style={styles.columnCardChart}>
+          {hasHistogram && (
+            <ProfileBarChart
+              labels={profile!.histogram.map(([min, max]) =>
+                min === max ? formatAxisNumber(min) : `${formatAxisNumber(min)}–${formatAxisNumber(max)}`
+              )}
+              counts={profile!.histogram.map(([, , c]) => c)}
+            />
+          )}
+          {hasTopValues && (
+            <ProfileBarChart
+              labels={profile!.top_values.map(([v]) => String(v))}
+              counts={profile!.top_values.map(([, c]) => c)}
+            />
+          )}
+        </div>
       )}
 
       {profile && (
         <div style={styles.statGrid}>
           <StatBlock label="null" value={`${(profile.null_rate * 100).toFixed(1)}%`} />
           <StatBlock label="distinct" value={formatCount(profile.distinct_count)} />
-          {profile.mean_value != null && <StatBlock label="mean" value={profile.mean_value.toFixed(2)} />}
-          {profile.p50 != null && <StatBlock label="p50" value={String(profile.p50)} />}
-          {profile.p95 != null && <StatBlock label="p95" value={String(profile.p95)} />}
+          {profile.mean_value != null && <StatBlock label="mean" value={formatStatNumber(profile.mean_value)} />}
+          {profile.p50 != null && <StatBlock label="p50" value={formatStatNumber(profile.p50)} />}
+          {profile.p95 != null && <StatBlock label="p95" value={formatStatNumber(profile.p95)} />}
           {profile.min_value != null && <StatBlock label="min" value={formatStatValue(profile.min_value)} />}
           {profile.max_value != null && <StatBlock label="max" value={formatStatValue(profile.max_value)} />}
         </div>
@@ -253,11 +266,28 @@ const ISO_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/;
 // Midnight-exact timestamps collapse to just the date; anything else keeps
 // hours:minutes.
 function formatStatValue(value: unknown): string {
+  if (typeof value === "number") return formatStatNumber(value);
   const str = String(value);
   const match = str.match(ISO_TIMESTAMP);
-  if (!match) return str;
-  const [, date, time] = match;
-  return time === "00:00:00" ? date : `${date} ${time.slice(0, 5)}`;
+  if (match) {
+    const [, date, time] = match;
+    return time === "00:00:00" ? date : `${date} ${time.slice(0, 5)}`;
+  }
+  // NUMERIC/decimal columns come back from the backend as JSON strings (a
+  // Postgres Decimal isn't natively JSON-serializable), not numbers — mean/
+  // p50/p95 are always plain floats so they skip this, but min/max preserve
+  // the source column's raw type. Parse those back to a number so they get
+  // the same comma formatting instead of printing the raw unbroken string.
+  const asNumber = Number(str);
+  if (str.trim() !== "" && Number.isFinite(asNumber)) return formatStatNumber(asNumber);
+  return str;
+}
+
+// Comma thousands separators for stat-block numbers (mean/p50/p95/min/max) —
+// keeps whole numbers whole and caps decimals at 2 so a mean like 4200.5
+// reads as "4,200.50" instead of a long unbroken digit string.
+function formatStatNumber(n: number): string {
+  return n.toLocaleString("en-US", { maximumFractionDigits: Number.isInteger(n) ? 0 : 2 });
 }
 
 function formatAxisNumber(n: number): string {
@@ -295,7 +325,7 @@ function useThemeColors() {
 function ProfileBarChart({ labels, counts }: { labels: string[]; counts: number[] }) {
   const { accent, text, grid } = useThemeColors();
   const option = {
-    grid: { left: 4, right: 4, top: 8, bottom: 28, containLabel: true },
+    grid: { left: 4, right: 4, top: 8, bottom: 8, containLabel: true },
     tooltip: { trigger: "axis" as const, axisPointer: { type: "shadow" as const } },
     xAxis: {
       type: "category" as const,
@@ -342,7 +372,7 @@ const styles: Record<string, React.CSSProperties> = {
   meta: {
     fontSize: 12,
     color: "var(--text-dim)",
-    marginBottom: 16,
+    marginBottom: 4,
   },
   tableMeta: {
     marginTop: 8,
@@ -459,16 +489,24 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 10,
     lineHeight: 1.55,
   },
+  columnCardDivider: {
+    borderTop: "1px solid var(--border)",
+    marginBottom: 16,
+  },
+  // Absorbs the leftover height CSS Grid adds when stretching every card in
+  // a row to match its tallest sibling — pushes the chart (and stats) down
+  // toward the bottom of the card instead of leaving that slack directly
+  // under the description.
+  columnCardSpacer: {
+    flexGrow: 1,
+  },
+  columnCardChart: {
+    marginBottom: 0,
+  },
   statGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))",
     gap: "10px 8px",
-    // Pins the stat grid to the bottom of the card instead of right after
-    // the description/chart — matters because CSS Grid stretches every
-    // card in a row to the height of its tallest sibling, and a card with
-    // no chart (shorter content) would otherwise leave a big gap *below*
-    // its stats rather than above them.
-    marginTop: "auto",
     paddingTop: 10,
     borderTop: "1px solid var(--border)",
   },
