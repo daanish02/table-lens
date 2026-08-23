@@ -41,7 +41,10 @@ def _describe_column_safe(table_name: str, col, profile) -> tuple[str, str | Non
     try:
         return col.name, describe_column(table_name, col, profile)
     except Exception as e:
-        log.error(f"describing column {table_name}.{col.name} failed: {e}")
+        # Recoverable — one column's LLM call failing doesn't take the rest
+        # of the table down with it (see docstring above). WARNING, not
+        # ERROR, since this is handled/degraded, not fatal.
+        log.warning(f"describing column {table_name}.{col.name} failed: {e}")
         return col.name, None
 
 
@@ -87,7 +90,8 @@ def _process_table(engine, run_id: str, schema: str, table, profiles: dict, all_
 
     failed = len(changed_cols) - len(column_descs)
     if failed:
-        log.error(f"{table.name}: {failed} of {len(changed_cols)} changed columns failed to describe, skipping them")
+        # Same reasoning as _describe_column_safe above — recoverable.
+        log.warning(f"{table.name}: {failed} of {len(changed_cols)} changed columns failed to describe, skipping them")
 
     update_step(engine, run_id, f"embedding:{table.name}")
     embed_and_store(
@@ -195,6 +199,7 @@ def run_discovery(db_url: str = "", schema: str = DEMO_SCHEMA, background: bool 
     # concurrent runs — each one pays real LLM/embedding cost per table.
     active = get_active_run(engine)
     if active is not None:
+        log.warning(f"discovery run refused, already active: {active['run_id']}")
         raise DiscoveryRunInProgress(active["run_id"])
 
     tables = get_schema_snapshot(engine, schema)

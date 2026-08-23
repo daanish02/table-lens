@@ -23,7 +23,7 @@ def search_tables(engine: Engine, query_text: str, top_k: int = 8) -> list[dict]
             text(queries.load("search_tables")), {"query_vec": str(vector), "top_k": top_k}
         ).mappings().all()
     results = [dict(r) for r in rows]
-    log.info(f"search_tables({query_text!r}): {len(results)} results, top={[r['table_name'] for r in results[:3]]}")
+    log.debug(f"search_tables({query_text!r}): {len(results)} results, top={[r['table_name'] for r in results[:3]]}")
     return results
 
 
@@ -37,5 +37,5 @@ def search_columns(engine: Engine, table_name: str, query_text: str, top_k: int 
             {"query_vec": str(vector), "table_name": table_name, "top_k": top_k},
         ).mappings().all()
     results = [dict(r) for r in rows]
-    log.info(f"search_columns({table_name!r}, {query_text!r}): {len(results)} results")
+    log.debug(f"search_columns({table_name!r}, {query_text!r}): {len(results)} results")
     return results

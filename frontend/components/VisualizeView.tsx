@@ -154,7 +154,9 @@ export default function VisualizeView() {
       });
       setCharts((prev) => prev.map((c) => (c.localId === card.localId ? { ...c, savedId: res.id, saving: false } : c)));
     } catch (err) {
-      logger.error("auto-save chart failed", err);
+      // Non-blocking: the chart itself is already built and shown, this
+      // only failed to persist it. The user can retry via "save chart".
+      logger.warn("auto-save chart failed", err);
       setCharts((prev) => prev.map((c) => (c.localId === card.localId ? { ...c, saving: false } : c)));
     }
   }
@@ -173,7 +175,9 @@ export default function VisualizeView() {
     try {
       await apiClient.post("/api/dashboards", { title, chart_ids: savedIds });
     } catch (err) {
-      logger.error("save dashboard failed", err);
+      // Non-blocking: the individual charts are already saved, only the
+      // dashboard grouping failed. The user can retry.
+      logger.warn("save dashboard failed", err);
     } finally {
       setSavingDashboard(false);
     }

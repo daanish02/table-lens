@@ -46,7 +46,7 @@ def describe_table(table: TableInfo, profiles: dict, sibling_tables: list[str] |
         columns=col_summary,
         sibling_tables=", ".join(sibling_tables or []),
     )
-    log.info(f"describing table: {table.name}")
+    log.debug(f"describing table: {table.name}")
     response = _get_llm().invoke(prompt)
     return response.content
 
@@ -66,6 +66,6 @@ def describe_column(table_name: str, column: ColumnInfo, profile) -> str:
         data_type=column.data_type,
         stats=stats,
     )
-    log.info(f"describing column: {table_name}.{column.name}")
+    log.debug(f"describing column: {table_name}.{column.name}")
     response = _get_llm().invoke(prompt)
     return response.content

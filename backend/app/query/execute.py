@@ -15,7 +15,9 @@ STATEMENT_TIMEOUT_MS = 15_000  # belt-and-suspenders against a pathological quer
 
 def run_query(engine: Engine, sql: str) -> dict:
     """Runs one already-validated SELECT, capped by STATEMENT_TIMEOUT_MS."""
-    log.info(f"executing: {sql}")
+    # No "executing: {sql}" line here — the caller (query.tools.run_sql)
+    # already logs the same SQL text at DEBUG when the tool is invoked;
+    # logging it again here would just duplicate it.
     with engine.connect() as conn:
         conn.execute(text(f"SET LOCAL statement_timeout = {STATEMENT_TIMEOUT_MS}"))
         result = conn.execute(text(sql))

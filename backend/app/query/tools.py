@@ -24,7 +24,7 @@ def build_tools(engine: Engine) -> list:
         """Semantic search over available database tables. Returns up to 8
         relevant tables with their descriptions, row counts, and column
         counts. Call this first to find which tables are relevant."""
-        log.info(f"tool call: search_tables({query!r})")
+        log.debug(f"tool call: search_tables({query!r})")
         results = retrieval.search_tables(engine, query, top_k=8)
         return json.dumps(results, default=str)
 
@@ -34,7 +34,7 @@ def build_tools(engine: Engine) -> list:
         a table_name already returned by search_tables). Returns up to 20
         relevant columns with descriptions and profile stats (null rate,
         distinct count, min/max, top values, histogram)."""
-        log.info(f"tool call: search_columns({table_name!r}, {query!r})")
+        log.debug(f"tool call: search_columns({table_name!r}, {query!r})")
         results = retrieval.search_columns(engine, table_name, query, top_k=20)
         return json.dumps(results, default=str)
 
@@ -45,7 +45,7 @@ def build_tools(engine: Engine) -> list:
         are fine), and should include a LIMIT (one is added automatically
         if missing). On error, the error message is returned instead of
         results — fix the SQL and call this again."""
-        log.info(f"tool call: run_sql({sql!r})")
+        log.debug(f"tool call: run_sql({sql!r})")
         try:
             normalized = sql_guard.validate_and_normalize(sql)
         except sql_guard.SQLValidationError as e:
@@ -54,7 +54,11 @@ def build_tools(engine: Engine) -> list:
         try:
             result = execute.run_query(engine, normalized)
         except Exception as e:
-            log.error(f"run_sql execution failed: {e}")
+            # A normal, expected part of the agent's retry loop (it can
+            # self-correct on bad SQL), not a server-side problem — WARNING
+            # to match the sibling validation-rejection case just above,
+            # not ERROR.
+            log.warning(f"run_sql execution failed: {e}")
             return json.dumps({"error": str(e), "sql": normalized})
         return json.dumps({"sql": normalized, **result}, default=str)
 
