@@ -5,7 +5,8 @@ from sqlalchemy import text
 from app.db.connection import get_engine
 
 requires_db = pytest.mark.skipif(
-    not os.getenv("SUPABASE_DB_URL"), reason="SUPABASE_DB_URL not set"
+    os.getenv("RUN_LIVE_TESTS") != "1",
+    reason="live network test — set RUN_LIVE_TESTS=1 to run",
 )
 
 

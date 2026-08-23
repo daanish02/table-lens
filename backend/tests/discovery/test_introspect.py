@@ -5,7 +5,8 @@ from app.discovery.introspect import get_schema_snapshot, to_hashable
 from app.db.connection import get_engine
 
 requires_db = pytest.mark.skipif(
-    not os.getenv("SUPABASE_DB_URL"), reason="SUPABASE_DB_URL not set"
+    os.getenv("RUN_LIVE_TESTS") != "1",
+    reason="live network test — set RUN_LIVE_TESTS=1 to run",
 )
 
 
@@ -24,7 +25,7 @@ def test_products_table_has_expected_columns():
     products = next((t for t in tables if t.name == "products"), None)
     assert products is not None
     col_names = {c.name for c in products.columns}
-    assert "product_id" in col_names or len(col_names) > 0
+    assert "product_id" in col_names
 
 
 def test_to_hashable_produces_sorted_dicts():

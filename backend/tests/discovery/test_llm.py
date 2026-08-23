@@ -7,7 +7,8 @@ from app.discovery.introspect import TableInfo, ColumnInfo
 from app.discovery.profiler import ColumnProfile
 
 requires_llm = pytest.mark.skipif(
-    not os.getenv("OPENROUTER_API_KEY"), reason="OPENROUTER_API_KEY not set"
+    os.getenv("RUN_LIVE_TESTS") != "1",
+    reason="live network test — set RUN_LIVE_TESTS=1 to run",
 )
 
 

@@ -8,8 +8,8 @@ from app.discovery.profiler import ColumnProfile
 from app.discovery.signature import column_signature
 
 requires_full_stack = pytest.mark.skipif(
-    not (os.getenv("SUPABASE_DB_URL") and os.getenv("OPENROUTER_API_KEY")),
-    reason="requires SUPABASE_DB_URL, OPENROUTER_API_KEY",
+    os.getenv("RUN_LIVE_TESTS") != "1",
+    reason="live network test — set RUN_LIVE_TESTS=1 to run",
 )
 
 

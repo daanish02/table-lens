@@ -6,7 +6,8 @@ from app.discovery.embeddings import embed_and_store
 from app.discovery.profiler import ColumnProfile
 
 requires_db = pytest.mark.skipif(
-    not os.getenv("SUPABASE_DB_URL"), reason="SUPABASE_DB_URL not set"
+    os.getenv("RUN_LIVE_TESTS") != "1",
+    reason="live network test — set RUN_LIVE_TESTS=1 to run",
 )
 
 

@@ -27,7 +27,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.3.0",
-    "pytest-asyncio>=0.24.0",
     "httpx>=0.27.0",
 ]
 
@@ -37,3 +36,7 @@ addopts = "-m 'not slow'"
 markers = [
     "slow: real end-to-end test (live LLM/embedding calls across every loaded table+column) — run explicitly with `pytest -m slow`, not part of the default run",
 ]
+# Tests marked requires_db/requires_llm/requires_full_stack (in tests/db/,
+# tests/discovery/) hit real Supabase/OpenRouter and skip unless
+# RUN_LIVE_TESTS=1 is set — not gated on credential presence, since a root
+# .env with real creds is expected to exist locally.
