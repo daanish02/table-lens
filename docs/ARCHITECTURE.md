@@ -5,40 +5,59 @@ Canon. Update whenever a component is added, replaced, or its role changes.
 Build/rollout progress lives in `docs/PROGRESS.md`, not here.
 
 ## System Overview
-```
-                         ┌─────────────────────┐
-                         │   Frontend (Next.js) │
-                         │  chat + chart panels │
-                         └──────────┬───────────┘
-                                    │ HTTP
-                         ┌──────────▼───────────┐
-                         │   Backend (FastAPI)   │
-                         │  ┌─────────────────┐  │
-                         │  │  discovery/     │  │
-                         │  │  (schema profile│  │
-                         │  │   + embeddings) │  │
-                         │  └────────┬────────┘  │
-                         │           │            │
-                         │  ┌────────▼────────┐  │
-                         │  │  query/         │  │
-                         │  │  agent (NL→SQL) │  │
-                         │  └────────┬────────┘  │
-                         │           │            │
-                         │  ┌────────▼────────┐  │
-                         │  │  visualize/     │  │
-                         │  │  agent (result  │  │
-                         │  │  → chart spec)  │  │
-                         │  └─────────────────┘  │
-                         └──────────┬────────────┘
-                                    │
-                         ┌──────────▼───────────┐
-                         │  Supabase (Postgres   │
-                         │  + pgvector)          │
-                         └───────────────────────┘
 
-   backend/app/generator/ (synthetic seed data) is offline tooling, run
-   once to populate the demo schema — not part of the request pipeline
-   above.
+Three independent agents sit behind one FastAPI service, each owning a
+distinct stage of the product: **discovery** turns an unknown database into
+searchable, described schema; **query** turns a natural-language question
+into validated SQL and a result set; **visualize** turns a result set into
+a validated chart spec. None of the three call each other directly — they
+communicate only through what they persist (embeddings, results), which
+keeps each one independently testable and replaceable.
+
+```mermaid
+flowchart TB
+    subgraph Client["Frontend — Next.js 14"]
+        UI["/ask · /visualize · /data"]
+    end
+
+    subgraph API["Backend — FastAPI"]
+        Routes["api/routes\n(discover · query · visualize · charts · data)"]
+        Discovery["discovery/\nschema profiling + embeddings"]
+        Query["query/\nNL → SQL agent"]
+        Visualize["visualize/\nresult → chart spec agent"]
+    end
+
+    subgraph Data["Supabase — Postgres + pgvector"]
+        Demo[("demo schema\ntarget database")]
+        Vectors[("table_embeddings\ncolumn_embeddings")]
+        Product[("public schema\nsaved_charts · dashboards · discovery_runs")]
+    end
+
+    LLM{{"OpenRouter\nLLM + embeddings"}}
+    Generator["generator/\noffline seed tool"]
+
+    UI -- HTTP / SSE --> Routes
+    Routes --> Discovery
+    Routes --> Query
+    Routes --> Visualize
+
+    Discovery -- introspects + profiles --> Demo
+    Discovery -- writes --> Vectors
+    Discovery -- reads/writes run state --> Product
+    Discovery -. LLM calls .-> LLM
+
+    Query -- retrieves --> Vectors
+    Query -- SELECT-only, read-only role --> Demo
+    Query -. LLM calls .-> LLM
+
+    Visualize -- reads result set --> Query
+    Visualize -. LLM calls .-> LLM
+
+    Routes -- persists --> Product
+
+    Generator -. one-time seed, not part of\nany live request .-> Demo
+
+    style Generator stroke-dasharray: 5 5
 ```
 
 ## Components
@@ -128,6 +147,110 @@ rendering gives fast first load and real link previews.
 `frontend/lib/logger.ts` — thin wrapper over `console.*` with levels,
 dev/prod aware. No external logging service — matches no-auth showcase
 scope.
+
+## Data Flow
+
+### Discovery: `POST /api/discover` → run status
+
+```mermaid
+sequenceDiagram
+    participant FE as Frontend
+    participant API as api/routes/discover
+    participant Orch as discovery/orchestrator
+    participant DB as Postgres (demo schema)
+    participant LLM as OpenRouter (LLM + embeddings)
+    participant PGV as pgvector (public schema)
+
+    FE->>API: POST /api/discover
+    API->>Orch: run_discovery() (background)
+    API-->>FE: 202 { run_id }
+    Orch->>DB: introspect information_schema
+    loop per table
+        Orch->>DB: TABLESAMPLE profile query
+        Orch->>Orch: per-column content_hash
+        alt hash unchanged since last run
+            Orch->>Orch: skip — no LLM call
+        else changed or new
+            Orch->>LLM: describe_table / describe_column
+            Orch->>LLM: embed_documents
+            Orch->>PGV: upsert table_embeddings / column_embeddings
+        end
+        Orch->>PGV: update discovery_runs.tables_done
+    end
+    Orch->>PGV: mark discovery_runs.status = done
+    FE->>API: GET /api/discover/status/{run_id} (polled)
+    API-->>FE: { status, step, tables_done/total_tables }
+```
+
+Relationship inference runs alongside the per-table loop (name-pattern +
+value-overlap sampling) but its output is only logged today — not yet
+persisted to `discovery_runs` or read back by the query agent.
+
+### Query: `POST /api/query` (SSE)
+
+```mermaid
+sequenceDiagram
+    participant FE as Frontend
+    participant API as api/routes/query
+    participant Agent as query/agent (LangChain tool loop)
+    participant PGV as pgvector
+    participant DB as Postgres (read-only role)
+    participant LLM as OpenRouter
+
+    FE->>API: POST /api/query { question, history }
+    API->>Agent: stream(question, history)
+    activate Agent
+    Agent->>LLM: search_tables tool call
+    LLM-->>Agent: table names
+    Agent->>PGV: embedding search (top 8 tables)
+    API-->>FE: event: tool_call / tool_result
+
+    Agent->>LLM: search_columns tool call
+    Agent->>PGV: embedding search (top 20 columns/table)
+    API-->>FE: event: tool_call / tool_result
+
+    Agent->>LLM: generate SQL
+    Agent->>Agent: sqlglot validation
+    Agent->>DB: run_sql (SELECT only)
+    alt SQL error
+        DB-->>Agent: error
+        Agent->>LLM: retry with error context
+        Note over Agent: bounded by tool-call recursion limit,\nnot a fixed retry count
+    else success
+        DB-->>Agent: rows
+    end
+    API-->>FE: event: tool_call / tool_result
+
+    Agent->>LLM: generate headline (sample of results)
+    Agent-->>API: answer, sql, rows, headline
+    deactivate Agent
+    API-->>FE: event: done { answer, sql, columns, rows, headline }
+```
+
+### Visualize: `POST /api/visualize`
+
+```mermaid
+sequenceDiagram
+    participant FE as Frontend
+    participant API as api/routes/visualize
+    participant Agent as visualize/agent
+    participant LLM as OpenRouter
+    participant Guard as visualize/chart_guard
+
+    FE->>API: POST /api/visualize { question, sql, headline, columns, rows, theme }
+    API->>Agent: generate_chart(...)
+    Agent->>LLM: structured chart-spec call
+    LLM-->>Agent: chart type + axis/series mapping
+    Agent->>Guard: validate against allowed types + structural rules
+    alt invalid
+        Guard-->>Agent: rejection reason
+        Agent->>LLM: retry with error context
+    else valid
+        Guard-->>Agent: ok
+    end
+    Agent-->>API: chart spec
+    API-->>FE: 200 { chart spec }
+```
 
 ## Data Stores
 - **Postgres (Supabase):** the demo insurance database itself (generator
