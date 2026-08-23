@@ -224,8 +224,8 @@ function ColumnCard({ col }: { col: ColumnResult }) {
           {profile.mean_value != null && <StatBlock label="mean" value={profile.mean_value.toFixed(2)} />}
           {profile.p50 != null && <StatBlock label="p50" value={String(profile.p50)} />}
           {profile.p95 != null && <StatBlock label="p95" value={String(profile.p95)} />}
-          {profile.min_value != null && <StatBlock label="min" value={String(profile.min_value)} />}
-          {profile.max_value != null && <StatBlock label="max" value={String(profile.max_value)} />}
+          {profile.min_value != null && <StatBlock label="min" value={formatStatValue(profile.min_value)} />}
+          {profile.max_value != null && <StatBlock label="max" value={formatStatValue(profile.max_value)} />}
         </div>
       )}
     </div>
@@ -239,6 +239,21 @@ function StatBlock({ label, value }: { label: string; value: string }) {
       <div style={styles.statBlockLabel}>{label}</div>
     </div>
   );
+}
+
+const ISO_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/;
+
+// Display-only reformat for min/max stat values — the underlying data is
+// untouched, this just keeps a raw ISO timestamp (e.g.
+// "2015-01-01T00:00:00") from wrapping mid-string in a narrow stat cell.
+// Midnight-exact timestamps collapse to just the date; anything else keeps
+// hours:minutes.
+function formatStatValue(value: unknown): string {
+  const str = String(value);
+  const match = str.match(ISO_TIMESTAMP);
+  if (!match) return str;
+  const [, date, time] = match;
+  return time === "00:00:00" ? date : `${date} ${time.slice(0, 5)}`;
 }
 
 function formatAxisNumber(n: number): string {
@@ -410,6 +425,8 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 12,
   },
   columnCard: {
+    display: "flex",
+    flexDirection: "column",
     border: "1px solid var(--border)",
     borderRadius: 2,
     padding: "12px 14px",
@@ -431,19 +448,26 @@ const styles: Record<string, React.CSSProperties> = {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))",
     gap: "10px 8px",
-    marginTop: 12,
+    // Pins the stat grid to the bottom of the card instead of right after
+    // the description/chart — matters because CSS Grid stretches every
+    // card in a row to the height of its tallest sibling, and a card with
+    // no chart (shorter content) would otherwise leave a big gap *below*
+    // its stats rather than above them.
+    marginTop: "auto",
     paddingTop: 10,
     borderTop: "1px solid var(--border)",
   },
   statBlock: {
     display: "flex",
     flexDirection: "column",
+    justifyContent: "flex-end",
     gap: 2,
   },
   statBlockValue: {
     fontFamily: "var(--mono)",
     fontSize: 13,
     color: "var(--text)",
+    whiteSpace: "nowrap",
   },
   statBlockLabel: {
     fontSize: 10,
