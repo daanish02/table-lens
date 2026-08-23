@@ -12,12 +12,14 @@ See `docs/diagrams/roadmap.excalidraw` for the visual timeline.
 | Stage | What | Status |
 |---|---|---|
 | 0 | Synthetic seed data generator | Built |
-| 1a | Discovery agent (schema profiling + embeddings) | Not started — spec: `specs/2026-08-22-foundation-stage1a-design.md` |
-| 1b | Query agent (NL → SQL) | Not started |
-| 2 | Chat + chart UI | Not started |
-| 3 | Dashboard builder | Not started |
+| 1a | Discovery agent (schema profiling + embeddings) | Built — relationship inference is computed but not yet persisted/consumed (see `PRD.md`) |
+| 1b | Query agent (NL → SQL) | Built |
+| 2 | Chat + chart UI | Built — split across `/ask` (chat + SQL/results) and `/visualize` (chat + chart cards), not a single unified split screen as originally scoped |
+| 3 | Dashboard builder | Built at reduced scope — save-a-named-chart-set only; no drag-and-drop layout, no NL composition |
 | 4 | RBAC / multi-tenant | Not scheduled |
 
 ## Current Focus
-Foundation + Stage 1a — repo restructure (flat `backend/`/`frontend/`,
-generator relocation) and discovery agent build.
+Reconciling `docs/` (PRD, ARCHITECTURE, SCHEMAS, APIS) with the actual
+implementation — those docs had drifted significantly behind the built
+system, in both directions (undocumented endpoints/tables, and described
+features that were never built).

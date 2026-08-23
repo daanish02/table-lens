@@ -13,11 +13,10 @@ describe("logger", () => {
   });
 
   it("suppresses debug logs when NODE_ENV is production", () => {
-    const original = process.env.NODE_ENV;
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     const spy = vi.spyOn(console, "debug").mockImplementation(() => {});
     logger.debug("verbose detail");
     expect(spy).not.toHaveBeenCalled();
-    process.env.NODE_ENV = original;
+    vi.unstubAllEnvs();
   });
 });
