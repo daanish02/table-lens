@@ -79,7 +79,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--text-dim)",
     lineHeight: 1.6,
     marginTop: 16,
-    maxWidth: 520,
+    textAlign: "justify",
   },
   rule: {
     border: "none",
@@ -90,6 +90,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14.5,
     color: "var(--text-dim)",
     lineHeight: 1.65,
+    textAlign: "justify",
     margin: "16px 0",
   },
   sections: {
