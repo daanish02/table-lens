@@ -28,8 +28,6 @@ Backed by 80+ automated tests — structural validation of every generate-then-v
 - **Database:** Supabase (Postgres + pgvector)
 - **Frontend:** Next.js 14 (App Router), `bun` for packages, ECharts for
   charts
-- **Generator:** synthetic insurance dataset (50 tables, ~5.3M rows) that
-  seeds the demo database
 
 ## Repo layout
 
