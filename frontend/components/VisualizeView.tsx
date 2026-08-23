@@ -12,7 +12,8 @@ import { apiClient } from "../lib/api-client";
 import { logger } from "../lib/logger";
 import { formatCount } from "../lib/format";
 import { getCurrentTheme } from "../lib/theme";
-import EChart from "./EChart";
+import EChart, { EChartHandle } from "./EChart";
+import { downloadCsv } from "../lib/csv";
 
 type Mode = "single" | "dashboard";
 
@@ -57,6 +58,7 @@ type ChartCard = {
   localId: string;
   question: string;
   sql: string;
+  columns: string[]; // column order for CSV export, kept separate from rows so it's stable even if a row is missing a key
   rows: Record<string, unknown>[]; // kept for the "stat" single-value display — the LLM's option is legitimately null for that type
   spec: ChartSpec | null; // null while the visualize agent is still working
   loadFailed: boolean;
@@ -85,6 +87,12 @@ let localIdCounter = 0;
 function nextLocalId(): string {
   localIdCounter += 1;
   return `chart-${localIdCounter}`;
+}
+
+/** Turns a chart's title/question into a safe, short filename base for
+ * PNG/CSV downloads. */
+function filenameFor(text: string): string {
+  return text.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "chart";
 }
 
 const MIN_CHAT_PCT = 20;
@@ -199,7 +207,8 @@ export default function VisualizeView() {
       setCharts((prev) => prev.map((c) => (c.localId === localId ? { ...c, spec } : c)));
       if (mode === "dashboard") {
         autoSaveChart({
-          localId, question, sql: result.sql as string, rows: result.rows as Record<string, unknown>[],
+          localId, question, sql: result.sql as string,
+          columns: result.columns as string[], rows: result.rows as Record<string, unknown>[],
           spec, loadFailed: false, savedId: null, saving: false,
         });
       }
@@ -268,6 +277,7 @@ export default function VisualizeView() {
           localId,
           question,
           sql: settled.sql,
+          columns: settled.columns,
           rows: settled.rows,
           spec: null,
           loadFailed: false,
@@ -475,6 +485,7 @@ function ChartCardView({
 }) {
   const spec = card.spec;
   const [copied, setCopied] = useState(false);
+  const chartRef = useRef<EChartHandle>(null);
 
   async function copySql() {
     try {
@@ -486,6 +497,8 @@ function ChartCardView({
     }
   }
 
+  const filenameBase = filenameFor(spec?.title ?? card.question);
+
   return (
     <div style={compact ? styles.chartCardCompact : styles.chartCard}>
       <div style={styles.chartCardTitle}>{spec?.title ?? card.question}</div>
@@ -494,7 +507,7 @@ function ChartCardView({
 
       {card.loadFailed && <div style={styles.dim}>Couldn't build a chart for this — see SQL for the raw data.</div>}
 
-      {spec && spec.option && <EChart option={spec.option as EChartsOption} height={compact ? 260 : 360} />}
+      {spec && spec.option && <EChart ref={chartRef} option={spec.option as EChartsOption} height={compact ? 260 : 360} />}
 
       {spec && spec.chart_type === "stat" && card.rows[0] && (
         <div style={styles.statValue}>{formatCount(Number(Object.values(card.rows[0])[0]))}</div>
@@ -508,6 +521,16 @@ function ChartCardView({
         <button style={styles.footerButton} onClick={onToggleSql}>{sqlExpanded ? "hide sql" : "view sql"}</button>
         {sqlExpanded && (
           <button style={styles.footerButton} onClick={copySql}>{copied ? "copied" : "copy"}</button>
+        )}
+        {spec && spec.option && (
+          <button style={styles.footerButton} onClick={() => chartRef.current?.downloadPng(filenameBase)}>
+            download png
+          </button>
+        )}
+        {card.rows.length > 0 && (
+          <button style={styles.footerButton} onClick={() => downloadCsv(filenameBase, card.columns, card.rows)}>
+            download csv
+          </button>
         )}
         {onSave && spec && (
           <button style={styles.footerButton} onClick={onSave} disabled={card.saving || !!card.savedId}>
@@ -680,7 +703,8 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 2,
   },
   sendButton: {
-    background: "transparent",
+    // Same reasoning as bubbleUser above.
+    background: "var(--bg)",
     border: "1px solid var(--accent)",
     color: "var(--accent)",
     padding: "0 16px",
@@ -719,7 +743,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 16,
   },
   saveDashboardButton: {
-    background: "transparent",
+    background: "var(--bg)",
     border: "1px solid var(--accent)",
     color: "var(--accent)",
     padding: "6px 14px",
@@ -769,7 +793,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 10,
   },
   footerButton: {
-    background: "transparent",
+    background: "var(--bg)",
     border: "1px solid var(--border)",
     color: "var(--text-dim)",
     padding: "4px 10px",

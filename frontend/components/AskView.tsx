@@ -9,6 +9,7 @@ import remarkGfm from "remark-gfm";
 import { apiClient } from "../lib/api-client";
 import { logger } from "../lib/logger";
 import { formatCell, formatCount } from "../lib/format";
+import { downloadCsv } from "../lib/csv";
 
 type ProgressLine = { text: string; ok?: boolean };
 
@@ -325,7 +326,17 @@ export default function AskView() {
           {!result && <div style={styles.emptyHint}>Results will appear here once you ask a question.</div>}
           {result && (
             <>
-              <div style={styles.meta}>{formatCount(result.row_count)} rows</div>
+              <div style={styles.metaRow}>
+                <div style={styles.meta}>{formatCount(result.row_count)} rows</div>
+                {result.rows && result.rows.length > 0 && (
+                  <button
+                    style={styles.copyButton}
+                    onClick={() => downloadCsv("table-lens-results", columns, result.rows!)}
+                  >
+                    download csv
+                  </button>
+                )}
+              </div>
               <div style={styles.tableWrap}>
                 <table style={styles.table}>
                   <thead>
@@ -518,7 +529,9 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 2,
   },
   sendButton: {
-    background: "transparent",
+    // Same reasoning as bubbleUser above — see it for why "transparent"
+    // is a problem now that the background mesh's stacking is fixed.
+    background: "var(--bg)",
     border: "1px solid var(--accent)",
     color: "var(--accent)",
     padding: "0 16px",
@@ -560,6 +573,12 @@ const styles: Record<string, React.CSSProperties> = {
   meta: {
     fontSize: 12,
     color: "var(--text-dim)",
+    flexShrink: 0,
+  },
+  metaRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 10,
     flexShrink: 0,
   },
@@ -602,7 +621,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   pagerButton: {
-    background: "transparent",
+    background: "var(--bg)",
     border: "1px solid var(--border)",
     color: "var(--text)",
     padding: "5px 12px",
@@ -649,7 +668,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--text-faint)",
   },
   copyButton: {
-    background: "transparent",
+    background: "var(--bg)",
     border: "1px solid var(--border)",
     color: "var(--text-dim)",
     padding: "3px 10px",
