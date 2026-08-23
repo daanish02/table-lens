@@ -9,7 +9,7 @@ import remarkGfm from "remark-gfm";
 import { apiClient } from "../lib/api-client";
 import { logger } from "../lib/logger";
 import { formatCell, formatCount } from "../lib/format";
-import { downloadCsv } from "../lib/csv";
+import { downloadCsv, filenameFor } from "../lib/csv";
 
 type ProgressLine = { text: string; ok?: boolean };
 
@@ -230,6 +230,7 @@ export default function AskView() {
   const columns = result?.columns ?? [];
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const lastQuestion = [...messages].reverse().find((m) => m.role === "user")?.content;
 
   return (
     <div style={styles.split} ref={containerRef}>
@@ -331,7 +332,7 @@ export default function AskView() {
                 {result.rows && result.rows.length > 0 && (
                   <button
                     style={styles.copyButton}
-                    onClick={() => downloadCsv("table-lens-results", columns, result.rows!)}
+                    onClick={() => downloadCsv(filenameFor(lastQuestion ?? "table-lens-results"), columns, result.rows!)}
                   >
                     download csv
                   </button>

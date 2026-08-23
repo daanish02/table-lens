@@ -13,7 +13,7 @@ import { logger } from "../lib/logger";
 import { formatCount } from "../lib/format";
 import { getCurrentTheme } from "../lib/theme";
 import EChart, { EChartHandle } from "./EChart";
-import { downloadCsv } from "../lib/csv";
+import { downloadCsv, filenameFor } from "../lib/csv";
 
 type Mode = "single" | "dashboard";
 
@@ -87,12 +87,6 @@ let localIdCounter = 0;
 function nextLocalId(): string {
   localIdCounter += 1;
   return `chart-${localIdCounter}`;
-}
-
-/** Turns a chart's title/question into a safe, short filename base for
- * PNG/CSV downloads. */
-function filenameFor(text: string): string {
-  return text.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "chart";
 }
 
 const MIN_CHAT_PCT = 20;
