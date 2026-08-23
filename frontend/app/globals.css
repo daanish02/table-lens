@@ -45,10 +45,23 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
   color: var(--text);
   font-family: var(--mono);
   height: 100%;
+}
+
+/* Solid color lives on html only, not body. html forms the page's root
+   stacking context, so its background paints as the base canvas — below
+   even .bg-mesh's negative z-index. body is left transparent on purpose:
+   its own background would otherwise paint as ordinary in-flow content,
+   which sits *above* negative-z-index children and blots the mesh out
+   completely (not just where real content covers it) — and only for the
+   first viewport height at that, since body's painted box was reliably
+   covering just the initial 100vh, not the full scrolled height, which is
+   what made the mesh reappear below the fold instead of extending
+   consistently down the page. */
+html {
+  background: var(--bg);
 }
 
 /* Sticky footer: without this, a short page's footer sits wherever the
@@ -68,19 +81,25 @@ body > main {
 /* Kite/diamond mesh — two mirrored diagonal line sets at a low angle from
    horizontal, crossing to form elongated quadrilaterals, teal-accented.
    A real DOM element (see .bg-mesh usage in app/layout.tsx) rendered as
-   the very first child of body and painted behind everything else purely
-   by DOM order — no z-index, no pseudo-element-behind-opaque-parent-
-   background footgun. A diagonal repeating-linear-gradient always tiles
-   itself seamlessly across its full box with no explicit background-size
-   needed — forcing one breaks the diagonal alignment. */
+   the very first child of body. A diagonal repeating-linear-gradient
+   always tiles itself seamlessly across its full box with no explicit
+   background-size needed — forcing one breaks the diagonal alignment.
+   z-index: -1 is load-bearing, not decorative: any positioned element
+   (this is position: fixed) paints above *all* unpositioned in-flow
+   content regardless of DOM order — coming first in the DOM doesn't put
+   it "behind" plain <div>s with a solid background-color, it was
+   painting on top of them (chat bubbles, chart cards, tables). Negative
+   z-index is what actually drops it under normal content, while still
+   painting above body's own background so the pattern stays visible. */
 .bg-mesh {
   position: fixed;
   inset: 0;
+  z-index: -1;
   pointer-events: none;
   background-image:
-    repeating-linear-gradient(18deg, transparent 0 140px, var(--accent) 140px 141px, transparent 141px 281px),
-    repeating-linear-gradient(-18deg, transparent 0 140px, var(--accent) 140px 141px, transparent 141px 281px);
-  opacity: 0.07;
+    repeating-linear-gradient(18deg, transparent 0 70px, var(--accent) 70px 71px, transparent 71px 141px),
+    repeating-linear-gradient(-18deg, transparent 0 70px, var(--accent) 70px 71px, transparent 71px 141px);
+  opacity: 0.11;
 }
 
 a {

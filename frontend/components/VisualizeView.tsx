@@ -327,17 +327,25 @@ export default function VisualizeView() {
     <div style={styles.split} ref={containerRef}>
       <div style={{ ...styles.chatPanel, width: `${chatPct}%` }}>
         <div style={styles.modeRow}>
-          <button style={{ ...styles.modeButton, ...(mode === "single" ? styles.modeButtonActive : {}) }} onClick={() => setMode("single")}>
+          <button
+            style={{ ...styles.modeButton, ...(mode === "single" ? styles.modeButtonActive : {}) }}
+            onClick={() => setMode("single")}
+            title="Each question replaces the chart shown"
+          >
             single
           </button>
-          <button style={{ ...styles.modeButton, ...(mode === "dashboard" ? styles.modeButtonActive : {}) }} onClick={() => setMode("dashboard")}>
+          <button
+            style={{ ...styles.modeButton, ...(mode === "dashboard" ? styles.modeButtonActive : {}) }}
+            onClick={() => setMode("dashboard")}
+            title="Each question adds a new chart to the dashboard"
+          >
             dashboard
           </button>
         </div>
         <div style={styles.chatLog} ref={chatLogRef}>
           {messages.length === 0 && (
             <div style={styles.emptyHint}>
-              Ask for a visualization — e.g. "claims by status" or "monthly premium trend". {mode === "dashboard" ? "Each answer adds a chart to the dashboard on the right." : "Each question replaces the chart on the right."}
+              Ask a question and it'll be turned into a chart automatically. {mode === "dashboard" ? "Each answer adds a chart to the dashboard on the right." : "Each question replaces the chart on the right."}
             </div>
           )}
           {messages.map((m, i) => (
@@ -539,14 +547,18 @@ const styles: Record<string, React.CSSProperties> = {
   modeRow: {
     display: "flex",
     gap: 8,
-    padding: "12px 12px 0",
+    padding: "14px 12px",
   },
   modeButton: {
     flex: 1,
-    background: "transparent",
+    // Same reasoning as bubbleUser in AskView.tsx — "transparent" let the
+    // background mesh show through once its stacking was fixed to sit
+    // properly below normal content; solid var(--bg) keeps the same
+    // outline-button look with an opaque fill.
+    background: "var(--bg)",
     border: "1px solid var(--border)",
     color: "var(--text-dim)",
-    padding: "7px 0",
+    padding: "9px 0",
     fontFamily: "var(--mono)",
     fontSize: 12,
     cursor: "pointer",
@@ -586,7 +598,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   bubbleUser: {
     alignSelf: "flex-end",
-    background: "var(--accent-dim)",
+    // Same teal tint as --accent-dim, but opaque — see AskView.tsx's
+    // bubbleUser for why --accent-dim's alpha is a problem here now.
+    background: "color-mix(in srgb, var(--accent) 12%, var(--bg))",
     color: "var(--text)",
   },
   bubbleAssistant: {
@@ -736,7 +750,8 @@ const styles: Record<string, React.CSSProperties> = {
     background: "var(--bg)",
   },
   chartCardTitle: {
-    fontSize: 13,
+    fontSize: 15,
+    fontWeight: 600,
     color: "var(--text)",
     marginBottom: 10,
   },

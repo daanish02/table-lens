@@ -235,7 +235,7 @@ export default function AskView() {
       <div style={{ ...styles.chatPanel, width: `${chatPct}%` }}>
         <div style={styles.chatLog} ref={chatLogRef}>
           {messages.length === 0 && (
-            <div style={styles.emptyHint}>Ask a question about your data — e.g. "how many claims are approved?"</div>
+            <div style={styles.emptyHint}>Ask a question about your data in plain English — no SQL or schema knowledge needed.</div>
           )}
           {messages.map((m, i) => (
             <div key={i} style={styles.bubbleRow}>
@@ -433,7 +433,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   bubbleUser: {
     alignSelf: "flex-end",
-    background: "var(--accent-dim)",
+    // Same teal tint as --accent-dim, but opaque — --accent-dim is a low-
+    // alpha rgba() (genuinely translucent by design), which let the fixed
+    // background mesh show through once its stacking was fixed to
+    // properly sit below normal content. color-mix() bakes the same blend
+    // into a solid color, still theme-aware since it reads --accent/--bg.
+    background: "color-mix(in srgb, var(--accent) 12%, var(--bg))",
     color: "var(--text)",
   },
   bubbleAssistant: {

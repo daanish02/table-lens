@@ -473,7 +473,9 @@ const styles: Record<string, React.CSSProperties> = {
   errorBox: {
     marginTop: 16,
     border: "1px solid var(--error)",
-    background: "var(--error-dim)",
+    // Opaque equivalent of --error-dim (a translucent rgba by design) —
+    // see AskView.tsx's bubbleUser for why alpha backgrounds are a problem now.
+    background: "color-mix(in srgb, var(--error) 12%, var(--bg))",
     color: "var(--error)",
     padding: "10px 14px",
     fontSize: 13,

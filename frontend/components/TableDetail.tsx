@@ -264,22 +264,32 @@ function ColumnCard({ col }: { col: ColumnResult }) {
 
       {profile && (
         <div style={styles.statGrid}>
-          <StatBlock label="null" value={`${(profile.null_rate * 100).toFixed(1)}%`} />
-          <StatBlock label="distinct" value={formatCount(profile.distinct_count)} />
-          {profile.mean_value != null && <StatBlock label="mean" value={formatStatNumber(profile.mean_value)} />}
-          {profile.p50 != null && <StatBlock label="p50" value={formatStatNumber(profile.p50)} />}
-          {profile.p95 != null && <StatBlock label="p95" value={formatStatNumber(profile.p95)} />}
-          {profile.min_value != null && <StatBlock label="min" value={formatStatValue(profile.min_value)} />}
-          {profile.max_value != null && <StatBlock label="max" value={formatStatValue(profile.max_value)} />}
+          <StatBlock label="null" value={`${(profile.null_rate * 100).toFixed(1)}%`} title="Share of rows where this column is NULL" />
+          <StatBlock label="distinct" value={formatCount(profile.distinct_count)} title="Number of distinct (unique) values in this column" />
+          {profile.mean_value != null && (
+            <StatBlock label="mean" value={formatStatNumber(profile.mean_value)} title="Average value across all non-null rows" />
+          )}
+          {profile.p50 != null && (
+            <StatBlock label="p50" value={formatStatNumber(profile.p50)} title="Median — half of values fall below this" />
+          )}
+          {profile.p95 != null && (
+            <StatBlock label="p95" value={formatStatNumber(profile.p95)} title="95th percentile — 95% of values fall below this" />
+          )}
+          {profile.min_value != null && (
+            <StatBlock label="min" value={formatStatValue(profile.min_value)} title="Smallest value in this column" />
+          )}
+          {profile.max_value != null && (
+            <StatBlock label="max" value={formatStatValue(profile.max_value)} title="Largest value in this column" />
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function StatBlock({ label, value }: { label: string; value: string }) {
+function StatBlock({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
-    <div style={styles.statBlock}>
+    <div style={styles.statBlock} title={title}>
       <div style={styles.statBlockValue}>{value}</div>
       <div style={styles.statBlockLabel}>{label}</div>
     </div>
@@ -441,7 +451,9 @@ const styles: Record<string, React.CSSProperties> = {
   errorBox: {
     marginTop: 16,
     border: "1px solid var(--error)",
-    background: "var(--error-dim)",
+    // Opaque equivalent of --error-dim (a translucent rgba by design) —
+    // see AskView.tsx's bubbleUser for why alpha backgrounds are a problem now.
+    background: "color-mix(in srgb, var(--error) 12%, var(--bg))",
     color: "var(--error)",
     padding: "10px 14px",
     fontSize: 13,
