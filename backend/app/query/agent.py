@@ -59,7 +59,7 @@ def ask_stream(engine: Engine, question: str, history: list[tuple[str, str]] | N
     agent = create_agent(
         get_llm(),
         tools=tools_module.build_tools(engine),
-        system_prompt=prompts.load("system"),
+        system_prompt=prompts.load("query_system"),
     )
 
     conversation = []

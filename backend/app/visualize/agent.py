@@ -52,7 +52,7 @@ def generate_chart(question: str, sql: str, headline: str, columns: list[str], r
     truncated = len(rows) > MAX_ROWS_IN_PROMPT
     rows_for_prompt = rows[:MAX_ROWS_IN_PROMPT] if truncated else rows
     rows_note = f" — showing the first {MAX_ROWS_IN_PROMPT}, truncated for length" if truncated else ""
-    prompt = prompts.load("chart").format(
+    prompt = prompts.load("chart_spec").format(
         question=question,
         sql=sql,
         headline=headline or "",
