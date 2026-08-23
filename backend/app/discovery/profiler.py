@@ -3,6 +3,7 @@ percentiles, top values, histograms) for a table already introspected by
 introspect.py. Large tables get sampled via TABLESAMPLE instead of a full
 scan — see _source()."""
 
+from datetime import date, datetime
 from pydantic import BaseModel, Field
 from sqlalchemy import text, Engine
 
@@ -18,12 +19,18 @@ log = get_logger(__name__)
 
 NUMERIC_TYPES = {"integer", "bigint", "smallint", "numeric", "real", "double precision", "money"}
 DATE_TYPES = {"date", "timestamp without time zone", "timestamp with time zone", "time without time zone", "time with time zone"}
+# Subset of DATE_TYPES bucketed on calendar boundaries (day/week/month/
+# quarter/year) — plain TIME has no date component, so it gets its own
+# hour/minute-scale ladder instead (see TIME_HISTOGRAM_TYPES below).
+DATE_HISTOGRAM_TYPES = {"date", "timestamp without time zone", "timestamp with time zone"}
+TIME_HISTOGRAM_TYPES = {"time without time zone", "time with time zone"}
 
 
 class ColumnProfile(BaseModel):
     """One column's computed statistics. Fields beyond row_count/null_rate/
     distinct_count are type-dependent — numeric columns get mean/percentiles/
-    histogram, date columns get min/max only, categorical get top_values."""
+    histogram, date/timestamp/time columns get min/max + a bucketed
+    histogram, categorical get top_values."""
 
     # Not frozen — fields below are filled in progressively after
     # construction as different stats queries complete (see profile_table).
@@ -36,7 +43,7 @@ class ColumnProfile(BaseModel):
     p50: float | None = None
     p95: float | None = None
     top_values: list[tuple] = Field(default_factory=list)
-    histogram: list[tuple] = Field(default_factory=list)  # numeric only: (bucket_min, count)
+    histogram: list[tuple] = Field(default_factory=list)  # numeric or date/timestamp: (bucket_min, count)
 
 
 def _source(schema: str, table: str, row_count: int) -> str:
@@ -57,6 +64,33 @@ def _chunks(items: list, size: int):
     """Yields successive `size`-length slices of `items`."""
     for i in range(0, len(items), size):
         yield items[i:i + size]
+
+
+def _date_bucket_granularity(min_value, max_value) -> str:
+    """Picks a date_trunc() unit from the column's actual span so buckets
+    land on natural calendar boundaries instead of arbitrary date ranges —
+    reads far more intuitively than continuous width_bucket slices of a
+    date range, and roughly keeps bucket count in a sane ~10-30 range
+    without needing a hard cap or a second round-trip to check."""
+    span_days = (max_value - min_value).days
+    if span_days <= 31:
+        return "day"
+    if span_days <= 210:
+        return "week"
+    if span_days <= 730:
+        return "month"
+    if span_days <= 3650:
+        return "quarter"
+    return "year"
+
+
+def _time_bucket_granularity(min_value, max_value) -> str:
+    """Same idea as _date_bucket_granularity, but a plain TIME column spans
+    at most 24h — no unbounded range to worry about, so only two tiers are
+    needed. datetime.time has no subtraction of its own, hence the
+    combine-with-a-dummy-date detour to get a real timedelta."""
+    span_seconds = (datetime.combine(date.min, max_value) - datetime.combine(date.min, min_value)).total_seconds()
+    return "minute" if span_seconds <= 1800 else "hour"
 
 
 def _profile_batch(conn, source: str, row_count: int, cols: list) -> dict[str, ColumnProfile]:
@@ -104,7 +138,8 @@ def _profile_batch(conn, source: str, row_count: int, cols: list) -> dict[str, C
 
 def profile_table(engine: Engine, schema: str, table: TableInfo) -> dict:
     """Full profile for every column in `table`: batched stats, then
-    top-values (categorical) and histograms (numeric) in separate passes.
+    top-values (categorical) and histograms (numeric, date/timestamp) in
+    separate passes.
 
     Returns:
         {column_name: ColumnProfile}
@@ -163,6 +198,45 @@ def profile_table(engine: Engine, schema: str, table: TableInfo) -> dict:
                         column=col.name, source=source,
                         min_val=profile.min_value, max_val=profile.max_value, buckets=buckets,
                     )
+                rows = conn.execute(text(sql)).all()
+                profile.histogram = [(r[0], r[1]) for r in rows]
+
+    # Histogram buckets for date/timestamp columns — same connection-
+    # chunking rationale as above. Buckets on calendar boundaries
+    # (day/week/month/quarter/year, picked from the column's actual span)
+    # rather than width_bucket over a raw date range, since a
+    # "2024-03-17 to 2024-08-02" bucket edge means nothing to a reader the
+    # way "March 2024" does.
+    date_cols = [c for c in table.columns if c.data_type in DATE_HISTOGRAM_TYPES]
+    for chunk in _chunks(date_cols, DISCOVERY_PROFILE_BATCH_SIZE):
+        with engine.connect() as conn:
+            for col in chunk:
+                profile = profiles[col.name]
+                if profile.distinct_count <= 1 or profile.min_value is None or profile.max_value == profile.min_value:
+                    continue
+                granularity = _date_bucket_granularity(profile.min_value, profile.max_value)
+                sql = queries.load("profiler_histogram_trunc").format(
+                    column=col.name, source=source, granularity=granularity,
+                )
+                rows = conn.execute(text(sql)).all()
+                profile.histogram = [(r[0], r[1]) for r in rows]
+
+    # Histogram buckets for plain TIME columns — hour/minute granularity
+    # instead of calendar units (date_trunc('day', a_time_column) doesn't
+    # mean anything; a TIME value has no date component). Same
+    # date_trunc()-based query as above (it's generic across date/
+    # timestamp/time), just a different granularity ladder.
+    time_cols = [c for c in table.columns if c.data_type in TIME_HISTOGRAM_TYPES]
+    for chunk in _chunks(time_cols, DISCOVERY_PROFILE_BATCH_SIZE):
+        with engine.connect() as conn:
+            for col in chunk:
+                profile = profiles[col.name]
+                if profile.distinct_count <= 1 or profile.min_value is None or profile.max_value == profile.min_value:
+                    continue
+                granularity = _time_bucket_granularity(profile.min_value, profile.max_value)
+                sql = queries.load("profiler_histogram_trunc").format(
+                    column=col.name, source=source, granularity=granularity,
+                )
                 rows = conn.execute(text(sql)).all()
                 profile.histogram = [(r[0], r[1]) for r in rows]
 

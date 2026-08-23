@@ -31,7 +31,7 @@ type ColumnProfile = {
   p50: number | null;
   p95: number | null;
   top_values: [unknown, number][];
-  histogram: [number, number][];
+  histogram: [number | string, number][]; // bucket_min is a date/timestamp ISO string for date columns
 };
 
 type ColumnResult = {
@@ -201,7 +201,25 @@ export default function TableDetail({ table }: { table: string }) {
 function ColumnCard({ col }: { col: ColumnResult }) {
   const profile = col.profile;
   const hasHistogram = profile && profile.histogram.length > 0;
-  const hasTopValues = profile && !hasHistogram && profile.top_values.length > 0;
+  // jsonb/array columns arrive with real objects/arrays as top_values
+  // entries (not strings) — no backend data_type is sent to the frontend,
+  // but this is enough to tell "structured value" apart from a plain
+  // string/number without needing one. A bar chart of String(someObject)
+  // ("[object Object]") isn't useful, so treat it the same as the
+  // unique-values case below: a note instead of a broken chart.
+  const isJsonColumn =
+    profile && !hasHistogram && profile.top_values.some(([v]) => typeof v === "object" && v !== null);
+  // A top-values chart where every one of the top 10 ties at count 1 tells
+  // you nothing but "this column is (near-)unique" — the stats below
+  // already say that via distinct_count. Suppress the flat, uninformative
+  // bar row rather than rendering it.
+  const hasTopValues =
+    profile &&
+    !hasHistogram &&
+    !isJsonColumn &&
+    profile.top_values.length > 0 &&
+    profile.top_values.some(([, c]) => c > 1);
+  const isUniqueColumn = profile && !hasHistogram && !isJsonColumn && profile.top_values.length > 0 && !hasTopValues;
 
   return (
     <div style={styles.columnCard}>
@@ -219,7 +237,7 @@ function ColumnCard({ col }: { col: ColumnResult }) {
         <div style={styles.columnCardChart}>
           {hasHistogram && (
             <ProfileBarChart
-              labels={profile!.histogram.map(([min]) => formatAxisNumber(min))}
+              labels={profile!.histogram.map(([min]) => formatHistogramLabel(min))}
               counts={profile!.histogram.map(([, c]) => c)}
             />
           )}
@@ -229,6 +247,18 @@ function ColumnCard({ col }: { col: ColumnResult }) {
               counts={profile!.top_values.map(([, c]) => c)}
             />
           )}
+        </div>
+      )}
+
+      {isUniqueColumn && profile && (
+        <div style={styles.columnCardChart}>
+          <div style={styles.uniqueNote}>{formatCount(profile.distinct_count)} unique values, no repeats</div>
+        </div>
+      )}
+
+      {isJsonColumn && profile && (
+        <div style={styles.columnCardChart}>
+          <div style={styles.uniqueNote}>{formatCount(profile.distinct_count)} distinct structured (JSON) values</div>
         </div>
       )}
 
@@ -294,6 +324,18 @@ function formatAxisNumber(n: number): string {
   if (abs >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   if (Number.isInteger(n)) return String(n);
   return n.toFixed(2);
+}
+
+// Histogram bucket labels are numbers for numeric columns, or strings for
+// date/timestamp/time columns — a date/timestamp string always starts with
+// a 4-digit year (keep the first 10 chars, its YYYY-MM-DD); a bare TIME
+// column's bucket has no date part, just "HH:MM:SS[.ffffff]" (keep the
+// first 8, dropping any fractional seconds). The granularity itself
+// (day/week/month/…, or minute/hour for time) isn't sent to the frontend —
+// showing each bucket's start is enough for a hover tooltip.
+function formatHistogramLabel(v: number | string): string {
+  if (typeof v === "number") return formatAxisNumber(v);
+  return /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : v.slice(0, 8);
 }
 
 const FALLBACK_COLORS = { accent: "#35c9be", text: "#8b8b93", grid: "#26262b" };
@@ -501,6 +543,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   columnCardChart: {
     marginBottom: 0,
+  },
+  uniqueNote: {
+    fontFamily: "var(--sans)",
+    fontSize: 12,
+    color: "var(--text-faint)",
+    fontStyle: "italic",
+    textAlign: "center",
+    padding: "24px 0",
   },
   statGrid: {
     display: "grid",
