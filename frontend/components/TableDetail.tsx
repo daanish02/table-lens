@@ -264,16 +264,27 @@ function formatAxisNumber(n: number): string {
   return n.toFixed(2);
 }
 
+const FALLBACK_COLORS = { accent: "#35c9be", text: "#8b8b93", grid: "#26262b" };
+
+function readThemeColors() {
+  // typeof document guard: this runs inside a useState lazy initializer,
+  // which also executes during SSR where document doesn't exist.
+  if (typeof document === "undefined") return FALLBACK_COLORS;
+  const style = getComputedStyle(document.documentElement);
+  return {
+    accent: style.getPropertyValue("--accent").trim() || FALLBACK_COLORS.accent,
+    text: style.getPropertyValue("--text-dim").trim() || FALLBACK_COLORS.text,
+    grid: style.getPropertyValue("--border").trim() || FALLBACK_COLORS.grid,
+  };
+}
+
 function useThemeColors() {
-  const [colors, setColors] = useState({ accent: "#35c9be", text: "#8b8b93", grid: "#26262b" });
-  useEffect(() => {
-    const style = getComputedStyle(document.documentElement);
-    setColors({
-      accent: style.getPropertyValue("--accent").trim() || "#35c9be",
-      text: style.getPropertyValue("--text-dim").trim() || "#8b8b93",
-      grid: style.getPropertyValue("--border").trim() || "#26262b",
-    });
-  }, []);
+  // A lazy initializer (not a hardcoded default + useEffect correction)
+  // reads the real, already-applied theme synchronously on first client
+  // render — otherwise a light-mode visitor saw one frame of dark-theme
+  // chart colors before the effect corrected it, the same flash the
+  // no-flash script in layout.tsx exists to prevent, just for charts.
+  const [colors] = useState(readThemeColors);
   return colors;
 }
 
