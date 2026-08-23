@@ -5,15 +5,45 @@ app.query.sql_guard for the query agent's SQL. Structural validation only
 inside an arbitrary ECharts option, which varies too much by chart type
 to validate generically."""
 
+import re
+
 __all__ = ["ChartValidationError", "validate_chart_spec"]
 
 ALLOWED_CHART_TYPES = {"line", "bar", "pie", "scatter", "stat"}
+
+# Lowercase unless first/last word — standard title-case minor-word list
+# (articles, short prepositions, coordinating conjunctions).
+_MINOR_WORDS = {
+    "a", "an", "and", "as", "at", "but", "by", "for", "in", "nor",
+    "of", "on", "or", "per", "the", "to", "vs", "via", "with",
+}
 
 
 class ChartValidationError(ValueError):
     """Raised when a generated chart spec fails validate_chart_spec()."""
 
     pass
+
+
+def _title_case(text: str) -> str:
+    """Title-cases a chart title deterministically instead of hoping the
+    LLM formats it consistently — capitalizes each word except minor words
+    (see _MINOR_WORDS) unless they're first or last, and leaves an
+    already-all-caps token alone (acronyms like SQL/ROI, not "wRiTe ThIs
+    dOwN") instead of mangling it into single-capital case."""
+    tokens = re.split(r"(\s+)", text)  # keep whitespace tokens so spacing survives unchanged
+    word_positions = [i for i, t in enumerate(tokens) if t.strip()]
+    for pos, i in enumerate(word_positions):
+        word = tokens[i]
+        if word.isupper() and len(word) > 1:
+            continue
+        bare = re.sub(r"[^\w]", "", word).lower()
+        is_edge = pos == 0 or pos == len(word_positions) - 1
+        if not is_edge and bare in _MINOR_WORDS:
+            tokens[i] = word.lower()
+        else:
+            tokens[i] = word[:1].upper() + word[1:].lower()
+    return "".join(tokens)
 
 
 def _strip_js_function_strings(node):
@@ -115,6 +145,7 @@ def validate_chart_spec(spec: dict) -> dict:
 
     if not isinstance(spec["title"], str) or not spec["title"].strip():
         raise ChartValidationError("title must be a non-empty string")
+    spec["title"] = _title_case(spec["title"].strip())
 
     if spec["chart_type"] not in ALLOWED_CHART_TYPES:
         raise ChartValidationError(f"unknown chart_type: {spec['chart_type']!r}, must be one of {ALLOWED_CHART_TYPES}")

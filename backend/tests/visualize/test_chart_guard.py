@@ -17,6 +17,24 @@ def test_accepts_stat_spec_with_null_option():
     assert validate_chart_spec(spec) == spec
 
 
+def test_title_cases_lowercase_title():
+    spec = {"title": "claims by status", "chart_type": "stat", "option": None}
+    result = validate_chart_spec(spec)
+    assert result["title"] == "Claims by Status"
+
+
+def test_title_case_lowercases_minor_words_except_first_and_last():
+    spec = {"title": "risk score vs loss ratio for the year", "chart_type": "stat", "option": None}
+    result = validate_chart_spec(spec)
+    assert result["title"] == "Risk Score vs Loss Ratio for the Year"
+
+
+def test_title_case_preserves_acronyms():
+    spec = {"title": "SQL errors by ROI band", "chart_type": "stat", "option": None}
+    result = validate_chart_spec(spec)
+    assert result["title"] == "SQL Errors by ROI Band"
+
+
 def test_rejects_non_dict():
     with pytest.raises(ChartValidationError):
         validate_chart_spec("not a dict")
