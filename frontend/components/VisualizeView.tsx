@@ -86,6 +86,10 @@ function nextLocalId(): string {
 const MIN_CHAT_PCT = 20;
 const MAX_CHAT_PCT = 60;
 const DEFAULT_CHAT_PCT = 100 / 3;
+// Generous enough not to false-positive on a legitimately long multi-round
+// agent run — matches the backend's own bounded worst case now that every
+// LLM call there has its own timeout.
+const REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
 
 export default function VisualizeView() {
   const [mode, setMode] = useState<Mode>("single");
@@ -103,6 +107,12 @@ export default function VisualizeView() {
   const chatLogRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const draggingH = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Without this, navigating away (or unmounting) mid-request left the
+  // fetch running against a component that no longer exists — wasted
+  // backend work with nothing left to receive it.
+  useEffect(() => () => abortControllerRef.current?.abort(), []);
 
   useEffect(() => {
     chatLogRef.current?.scrollTo({ top: chatLogRef.current.scrollHeight, behavior: "smooth" });
@@ -206,6 +216,10 @@ export default function VisualizeView() {
     let finalResult: QueryResult | null = null;
     const stepsAcc: ProgressLine[] = [];
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
     try {
       await apiClient.streamPost<StreamEvent>("/api/query", { question, history }, (event) => {
         if (event.type === "tool_call") {
@@ -231,7 +245,7 @@ export default function VisualizeView() {
             elapsed_ms: event.elapsed_ms,
           };
         }
-      });
+      }, controller.signal);
 
       // See AskView.tsx for why this needs an explicit cast, not just an
       // annotation — a documented TS control-flow-analysis limitation with
@@ -256,9 +270,20 @@ export default function VisualizeView() {
         buildChart(localId, question, settled);
       }
     } catch (err) {
-      logger.error("query failed", err);
-      setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong answering that — try rephrasing the question.", error: true, steps: stepsAcc }]);
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // User-initiated stop or the request timeout — not a failure, so no
+        // error bubble. Keep whatever partial answer had already streamed
+        // in, if any, rather than silently discarding it.
+        if (liveAnswer) {
+          setMessages((prev) => [...prev, { role: "assistant", content: liveAnswer, steps: stepsAcc }]);
+        }
+      } else {
+        logger.error("query failed", err);
+        setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong answering that — try rephrasing the question.", error: true, steps: stepsAcc }]);
+      }
     } finally {
+      clearTimeout(timeoutId);
+      abortControllerRef.current = null;
       setLoading(false);
       setProgressLines([]);
       setStreamingText("");
@@ -368,9 +393,15 @@ export default function VisualizeView() {
             onKeyDown={onKeyDown}
             rows={2}
           />
-          <button style={styles.sendButton} onClick={handleSend} disabled={loading || !input.trim()}>
-            send
-          </button>
+          {loading ? (
+            <button style={styles.sendButton} onClick={() => abortControllerRef.current?.abort()}>
+              stop
+            </button>
+          ) : (
+            <button style={styles.sendButton} onClick={handleSend} disabled={!input.trim()}>
+              send
+            </button>
+          )}
         </div>
       </div>
 
