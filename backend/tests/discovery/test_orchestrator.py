@@ -2,7 +2,7 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 
-from app.discovery.orchestrator import run_discovery, get_discovery_status, _process_table
+from app.discovery.orchestrator import run_discovery, get_discovery_status, _process_table, DiscoveryRunInProgress
 from app.discovery.introspect import TableInfo, ColumnInfo
 from app.discovery.profiler import ColumnProfile
 from app.discovery.signature import column_signature
@@ -19,6 +19,16 @@ def test_run_discovery_completes_and_reports_status():
     run_id = run_discovery(os.environ["SUPABASE_DB_URL"], schema="demo")
     status = get_discovery_status(run_id)
     assert status["status"] in {"running", "done"}
+
+
+@patch("app.discovery.orchestrator.get_active_run")
+@patch("app.discovery.orchestrator.run_migrations")
+@patch("app.discovery.orchestrator.get_engine")
+def test_run_discovery_refuses_when_a_run_is_already_active(mock_get_engine, mock_migrations, mock_active):
+    mock_active.return_value = {"run_id": "already-running-id", "status": "running"}
+    with pytest.raises(DiscoveryRunInProgress) as exc_info:
+        run_discovery()
+    assert exc_info.value.run_id == "already-running-id"
 
 
 def _col(name="a", data_type="integer", is_pk=False, is_fk=False):

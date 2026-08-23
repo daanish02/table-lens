@@ -11,7 +11,7 @@ from app.discovery.embeddings import (
     get_overview_stats,
 )
 from app.discovery.idempotency import get_last_run
-from app.discovery.orchestrator import run_discovery, get_discovery_status
+from app.discovery.orchestrator import run_discovery, get_discovery_status, DiscoveryRunInProgress
 
 __all__ = [
     "TableInfo",
@@ -32,4 +32,5 @@ __all__ = [
     "get_last_run",
     "run_discovery",
     "get_discovery_status",
+    "DiscoveryRunInProgress",
 ]

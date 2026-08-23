@@ -7,7 +7,7 @@ from app.db.connection import get_engine
 from app.db.migrate import run_migrations
 from app.discovery.idempotency import (
     schema_hash, start_run, update_step, mark_done, mark_failed, get_status,
-    set_progress_total, increment_tables_done,
+    set_progress_total, increment_tables_done, get_active_run,
 )
 from app.discovery.introspect import get_schema_snapshot, to_hashable
 from app.discovery.profiler import profile_table
@@ -18,6 +18,16 @@ from app.discovery.signature import column_signature
 from app.utils.logger import get_logger
 
 log = get_logger(__name__)
+
+
+class DiscoveryRunInProgress(Exception):
+    """Raised by run_discovery() when another run is already pending/running
+    — without this, an unauthenticated caller could trigger unbounded
+    concurrent runs, each paying real LLM/embedding cost per table."""
+
+    def __init__(self, run_id: str):
+        self.run_id = run_id
+        super().__init__(f"discovery run already in progress: {run_id}")
 
 
 def _describe_column_safe(table_name: str, col, profile) -> tuple[str, str | None]:
@@ -91,7 +101,6 @@ def _run_pipeline(engine, run_id: str, schema: str, tables) -> None:
     # calls) is gated per-column inside _process_table via content_hash, not
     # by skipping whole tables here.
     remaining = tables
-    set_progress_total(engine, run_id, total=len(tables), done_already=0)
 
     def _profile_one(t):
         try:
@@ -100,6 +109,11 @@ def _run_pipeline(engine, run_id: str, schema: str, tables) -> None:
             return t.name, None, str(e)
 
     try:
+        # Moved inside the try (was called before it started) — a failure
+        # here used to propagate uncaught out of _run_pipeline (this runs on
+        # a daemon thread, so the exception just prints to stderr) leaving
+        # the run stuck at status='running' forever with no mark_failed call.
+        set_progress_total(engine, run_id, total=len(tables), done_already=0)
         update_step(engine, run_id, "profiling")
         # Profiling is DB-bound (SQL round-trips), not LLM-bound — tables
         # are independent, so profile several concurrently instead of one
@@ -156,6 +170,12 @@ def run_discovery(db_url: str = "", schema: str = DEMO_SCHEMA, background: bool 
     # anymore — see docs/PRD.md, discovery re-run caching).
     engine = get_engine()
     run_migrations(engine)
+
+    # Without this, an unauthenticated caller could trigger unbounded
+    # concurrent runs — each one pays real LLM/embedding cost per table.
+    active = get_active_run(engine)
+    if active is not None:
+        raise DiscoveryRunInProgress(active["run_id"])
 
     tables = get_schema_snapshot(engine, schema)
     hash_value = schema_hash(to_hashable(tables))

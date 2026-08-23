@@ -2,6 +2,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.discovery import DiscoveryRunInProgress
 
 client = TestClient(app)
 
@@ -11,6 +12,13 @@ def test_post_discover_kicks_off_run_and_returns_run_id():
         response = client.post("/api/discover", json={"db_url": "postgres://fake"})
     assert response.status_code == 202
     assert response.json() == {"run_id": "fake-run-id"}
+
+
+def test_post_discover_returns_409_when_a_run_is_already_active():
+    with patch("app.api.routes.discover.run_discovery", side_effect=DiscoveryRunInProgress("already-running-id")):
+        response = client.post("/api/discover", json={})
+    assert response.status_code == 409
+    assert response.json()["detail"]["run_id"] == "already-running-id"
 
 
 def test_get_discover_status_returns_run_state():

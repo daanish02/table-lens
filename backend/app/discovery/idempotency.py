@@ -76,6 +76,15 @@ def get_status(engine: Engine, run_id: str) -> dict | None:
     return dict(row) if row else None
 
 
+def get_active_run(engine: Engine) -> dict | None:
+    """Any run still pending/running — used to refuse starting a new run
+    while one's already in flight (see run_discovery)."""
+    ensure_runs_table(engine)
+    with engine.connect() as conn:
+        row = conn.execute(text(queries.load("idempotency_get_active_run"))).mappings().first()
+    return dict(row) if row else None
+
+
 def get_last_run(engine: Engine) -> dict | None:
     ensure_runs_table(engine)
     with engine.connect() as conn:
