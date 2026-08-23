@@ -6,7 +6,7 @@ import json
 import time
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.db import get_engine
 from app.query import ask_stream
@@ -18,15 +18,18 @@ __all__ = ["router"]
 log = get_logger(__name__)
 router = APIRouter(prefix="/api/query", tags=["query"])
 
+MAX_TEXT_LENGTH = 2000  # generous headroom for a real question/answer, not a body-size DoS vector
+MAX_HISTORY_TURNS = 20
+
 
 class HistoryTurn(BaseModel):
     role: str  # "user" or "assistant"
-    content: str
+    content: str = Field(max_length=MAX_TEXT_LENGTH)
 
 
 class QueryRequest(BaseModel):
-    question: str
-    history: list[HistoryTurn] = []
+    question: str = Field(max_length=MAX_TEXT_LENGTH)
+    history: list[HistoryTurn] = Field(default_factory=list, max_length=MAX_HISTORY_TURNS)
 
 
 @router.post("")
