@@ -2,6 +2,8 @@
  * script, and the sitewide nav/footer chrome every page renders inside. */
 
 import { Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import NavBar from "../components/NavBar";
 import Footer from "../components/Footer";
@@ -36,6 +38,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <NavBar />
         {children}
         <Footer />
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
