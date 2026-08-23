@@ -1,3 +1,6 @@
+/** Thin fetch wrapper for the backend API — plain JSON requests plus an
+ * SSE stream reader for the query agent's live-progress endpoint. */
+
 import { logger } from "./logger";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -13,6 +16,7 @@ export class ApiError extends Error {
   }
 }
 
+/** GET/POST helper — parses the JSON body, throws ApiError on a non-2xx status. */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   logger.debug("api.request", { path });
   const response = await fetch(`${BASE_URL}${path}`, init);

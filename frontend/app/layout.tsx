@@ -1,3 +1,6 @@
+/** Root layout: font loading, page-title template, the theme no-flash
+ * script, and the sitewide nav/footer chrome every page renders inside. */
+
 import { Inter } from "next/font/google";
 import "./globals.css";
 import NavBar from "../components/NavBar";

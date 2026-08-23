@@ -5,6 +5,8 @@ import { getCurrentTheme, type Theme } from "../lib/theme";
 
 const STORAGE_KEY = "table-lens-theme";
 
+/** Button that flips [data-theme] on <html> and persists the choice to
+ * localStorage. Label shows the mode you'd switch TO, not the current one. */
 export default function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>("dark");
 

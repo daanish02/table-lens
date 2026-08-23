@@ -1,3 +1,6 @@
+/** Landing page: product pitch, demo-dataset blurb, and links to the three
+ * feature pages. */
+
 import Link from "next/link";
 
 export default function HomePage() {

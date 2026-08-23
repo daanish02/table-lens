@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import * as echarts from "echarts";
 import type { EChartsOption } from "echarts";
 
+/** Thin ECharts wrapper — owns the chart instance's lifecycle (init/resize/
+ * dispose) so callers just pass an option object. */
 export default function EChart({ option, height = 280 }: { option: EChartsOption; height?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);

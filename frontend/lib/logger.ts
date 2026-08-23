@@ -1,3 +1,5 @@
+/** Console-backed logger — debug logs are stripped in production builds. */
+
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 function shouldLog(level: LogLevel): boolean {

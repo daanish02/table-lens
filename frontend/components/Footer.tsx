@@ -2,6 +2,8 @@
 
 import { AUTHOR_HANDLE, AUTHOR_GITHUB_URL, getAuthorEmail } from "../lib/site";
 
+/** Sitewide footer — author credit + a contact link that builds its
+ * mailto: address client-side (see the onClick below). */
 export default function Footer() {
   return (
     <footer style={styles.footer}>

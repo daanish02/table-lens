@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+/** Accessible confirm/cancel modal — focus-trapped, Escape-to-close, focus
+ * restored to the trigger element on close. Renders nothing while !open. */
 export default function ConfirmDialog({
   open,
   title,

@@ -1,3 +1,6 @@
+/** Shimmering loading placeholders — plain sizing, no data-shape awareness. */
+
+/** One shimmering bar, sized via width/height. */
 export function Skeleton({ width, height = 14 }: { width?: string | number; height?: string | number }) {
   return (
     <div style={{ width, height, background: "var(--surface)", borderRadius: 2, overflow: "hidden", position: "relative" }}>
@@ -6,6 +9,7 @@ export function Skeleton({ width, height = 14 }: { width?: string | number; heig
   );
 }
 
+/** Placeholder shaped like a table/column card (title + a few text lines). */
 export function SkeletonCard() {
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 2, padding: "14px 16px" }}>

@@ -1,5 +1,9 @@
 "use client";
 
+/** /data/browse/[table] page: one table's description, paginated raw rows,
+ * and a per-column stats grid (histogram/top-values chart + null rate,
+ * distinct count, percentiles). */
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "../lib/api-client";

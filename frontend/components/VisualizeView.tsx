@@ -1,5 +1,9 @@
 "use client";
 
+/** /visualize page: same chat-driven query flow as AskView, but each
+ * finished result is handed to the visualize agent to build a chart —
+ * single mode replaces the current chart, dashboard mode accumulates them. */
+
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";

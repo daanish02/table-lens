@@ -1,5 +1,8 @@
 "use client";
 
+/** /data landing page: schema-wide stats, a "run discovery" trigger with
+ * live progress polling, and the grid of discovered tables. */
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "../lib/api-client";

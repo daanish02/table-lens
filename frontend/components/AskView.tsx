@@ -1,5 +1,8 @@
 "use client";
 
+/** /ask page: a chat panel (SSE-streamed query-agent progress + typed
+ * answer) split against a draggable SQL/results table view. */
+
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";

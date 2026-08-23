@@ -1,3 +1,6 @@
+/** Small display-formatting helpers shared across components. */
+
+/** "DD/MM/YYYY HH:MM:SS AM/PM" from an ISO timestamp. */
 export function formatDateTime(iso: string): string {
   const d = new Date(iso);
   const dd = String(d.getDate()).padStart(2, "0");
@@ -12,11 +15,13 @@ export function formatDateTime(iso: string): string {
   return `${dd}/${mm}/${yyyy} ${hh}:${min}:${sec} ${ampm}`;
 }
 
+/** Locale-formatted integer (comma thousands separators), or "—" for null. */
 export function formatCount(n: number | null): string {
   if (n === null) return "—";
   return n.toLocaleString("en-US");
 }
 
+/** Stringifies one table cell value for display — null/undefined become "—". */
 export function formatCell(v: unknown): string {
   if (v === null || v === undefined) return "—";
   if (typeof v === "boolean") return v ? "true" : "false";

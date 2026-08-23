@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/visualize", label: "visualize" },
 ];
 
+/** Sitewide top nav — wordmark, page links (active one highlighted), theme toggle. */
 export default function NavBar() {
   const pathname = usePathname();
   return (
