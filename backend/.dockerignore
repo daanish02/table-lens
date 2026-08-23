@@ -8,8 +8,7 @@ logs/
 *.log
 .env
 .env.local
-app/generator/output/
-app/generator/manifest.json
+app/generator/
 .git/
 .gitignore
 Dockerfile
