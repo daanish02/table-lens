@@ -3,10 +3,10 @@
 # safe to re-run. Logs go to .run/backend.log and .run/frontend.log; PIDs
 # are written to .run/*.pid so stop.ps1 can find them.
 #
-# Usage: .\start.ps1
+# Usage: .\scripts\start.ps1
 
 $ErrorActionPreference = "Stop"
-$root = $PSScriptRoot
+$root = Split-Path -Parent $PSScriptRoot
 $runDir = Join-Path $root ".run"
 New-Item -ItemType Directory -Force -Path $runDir | Out-Null
 
@@ -70,4 +70,4 @@ if (Wait-Http "http://127.0.0.1:3000" 30) {
 
 Write-Host ""
 Write-Host "Logs: $runDir\backend.log / backend.err.log, $runDir\frontend.log / frontend.err.log"
-Write-Host "Stop both with: .\stop.ps1"
+Write-Host "Stop both with: .\scripts\stop.ps1"

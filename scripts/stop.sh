@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Stops the backend/frontend processes started by start.sh.
 #
-# Usage: ./stop.sh
+# Usage: ./scripts/stop.sh (run from anywhere, resolves repo root itself)
 set -uo pipefail
 
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 run_dir="$root/.run"
 
 kill_pidfile() {

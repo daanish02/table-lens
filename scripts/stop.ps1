@@ -1,8 +1,8 @@
 # Stops the backend/frontend processes started by start.ps1.
 #
-# Usage: .\stop.ps1
+# Usage: .\scripts\stop.ps1
 
-$root = $PSScriptRoot
+$root = Split-Path -Parent $PSScriptRoot
 $runDir = Join-Path $root ".run"
 
 function Stop-Pidfile($name) {

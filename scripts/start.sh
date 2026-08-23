@@ -4,10 +4,10 @@
 # safe to re-run. Logs go to .run/backend.log and .run/frontend.log; PIDs
 # are written to .run/*.pid so stop.sh can find them.
 #
-# Usage: ./start.sh
+# Usage: ./scripts/start.sh (run from anywhere, resolves repo root itself)
 set -euo pipefail
 
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 run_dir="$root/.run"
 mkdir -p "$run_dir"
 
@@ -65,4 +65,4 @@ fi
 
 echo ""
 echo "Logs: $run_dir/backend.log, $run_dir/frontend.log"
-echo "Stop both with: ./stop.sh"
+echo "Stop both with: ./scripts/stop.sh"
