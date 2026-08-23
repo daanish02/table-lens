@@ -4,7 +4,7 @@ The user asked: {question}
 SQL that was already run: {sql}
 Plain-English summary of the result: {headline}
 Columns: {columns}
-Full result ({row_count} rows), as JSON: {rows}
+Result ({row_count} rows total{rows_note}), as JSON: {rows}
 
 Chart type guidance (pick whichever actually fits this result — don't force one):
 - A date/time column plus one or more numeric columns -> "line" (time series)
@@ -16,7 +16,7 @@ Chart type guidance (pick whichever actually fits this result — don't force on
 
 Rules:
 - Use ONLY column names that actually appear in the columns list above — never invent one.
-- Encode the FULL result you were given into the option's series `data`, not a subset — someone will call `echarts.setOption(option)` directly with exactly what you return, unmodified. It must be complete, valid ECharts JSON for the chart type you chose (proper xAxis/yAxis/series, or the pie/scatter equivalent).
+- Encode every row shown to you above into the option's series `data`, not a further subset of it — someone will call `echarts.setOption(option)` directly with exactly what you return, unmodified. It must be complete, valid ECharts JSON for the chart type you chose (proper xAxis/yAxis/series, or the pie/scatter equivalent).
 - If chart_type is "stat", you may return option as null — a single number doesn't need one.
 - Match the app's {theme} theme: don't set backgroundColor (the page already provides it). For text/labels use "{text_color}"; dim/secondary text "{dim_text_color}"; axis lines and gridlines "{grid_color}". For series colors, use "{accent_color}" as the primary color, and if you need more (multi-series, pie slices, bar categories) draw from this palette in order: {series_palette}.
 - Write a short, specific chart title — what a person would actually put above this chart (e.g. "Claims by Status"), not a restatement of the question that was asked (e.g. not "How many claims are there by status"). This goes in the top-level `title` field ONLY — never add an ECharts `title` component inside `option` (no `option.title`). The frontend renders the top-level title as its own heading above the chart; a duplicate title drawn inside the chart canvas wastes vertical space and can overlap the plot when the chart is shown small (e.g. in a dashboard grid).

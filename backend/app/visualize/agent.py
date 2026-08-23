@@ -19,6 +19,14 @@ log = get_logger(__name__)
 
 MAX_ATTEMPTS = 3
 
+# Separate from sql_guard's 1000-row DB LIMIT (what's shown to the user) —
+# this caps what actually gets JSON-dumped into the prompt. Every attempt
+# in the retry loop below resends the same prompt, so an uncapped large
+# result multiplies token cost by up to MAX_ATTEMPTS for no benefit: a
+# chart's visual shape rarely needs more than a couple hundred data points
+# to determine correctly.
+MAX_ROWS_IN_PROMPT = 200
+
 
 def _extract_json(text: str) -> dict:
     text = text.strip()
@@ -36,13 +44,17 @@ def generate_chart(question: str, sql: str, headline: str, columns: list[str], r
     # an unreadable mess — a short id per call lets you grep one out.
     call_id = uuid.uuid4().hex[:8]
     palette = get_palette(theme)
+    truncated = len(rows) > MAX_ROWS_IN_PROMPT
+    rows_for_prompt = rows[:MAX_ROWS_IN_PROMPT] if truncated else rows
+    rows_note = f" — showing the first {MAX_ROWS_IN_PROMPT}, truncated for length" if truncated else ""
     prompt = prompts.load("chart").format(
         question=question,
         sql=sql,
         headline=headline or "",
         columns=", ".join(columns),
         row_count=len(rows),
-        rows=json.dumps(rows, default=str),
+        rows_note=rows_note,
+        rows=json.dumps(rows_for_prompt, default=str),
         theme=theme,
         text_color=palette["text_color"],
         dim_text_color=palette["dim_text_color"],
