@@ -493,7 +493,8 @@ const styles: Record<string, React.CSSProperties> = {
     background: "var(--surface)",
   },
   tableCardName: {
-    fontSize: 13,
+    fontSize: 16,
+    fontWeight: 600,
     color: "var(--accent)",
   },
   tableCardMeta: {
