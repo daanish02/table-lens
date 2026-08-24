@@ -422,6 +422,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statsHeader: {
     display: "flex",
+    flexWrap: "wrap",
     gap: 24,
     border: "1px solid var(--border)",
     borderRadius: 2,
@@ -566,7 +567,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tableGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 100%), 1fr))",
     gap: 12,
   },
   tableCard: {
