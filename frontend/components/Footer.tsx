@@ -36,6 +36,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    flexWrap: "wrap",
+    rowGap: 4,
     padding: "14px 24px",
     borderTop: "1px solid var(--border)",
     background: "var(--bg)",

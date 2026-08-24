@@ -1,6 +1,7 @@
 /** Root layout: font loading, page-title template, the theme no-flash
  * script, and the sitewide nav/footer chrome every page renders inside. */
 
+import type { Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -13,6 +14,14 @@ const inter = Inter({ subsets: ["latin"], variable: "--sans-loaded", display: "s
 export const metadata = {
   title: { default: "Table Lens", template: "%s | Table Lens" },
   description: "AI-native conversational BI",
+};
+
+// Next.js injects this by default when unset — declared explicitly rather
+// than relying on that, since it's the one thing every page on the site
+// depends on to render at a sane scale on a phone at all.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 // Applies a saved "light" preference to <html> before first paint — dark
