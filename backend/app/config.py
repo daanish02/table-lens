@@ -18,7 +18,13 @@ DISCOVERY_TOP_N_CATEGORICAL = 10       # top-N values captured per categorical c
 DISCOVERY_FK_OVERLAP_SAMPLE = 1000     # rows sampled for FK-overlap inference
 DISCOVERY_FK_OVERLAP_THRESHOLD = 0.90  # % overlap required to infer a relationship
 DISCOVERY_DESCRIBE_CONCURRENCY = 8     # concurrent column-description LLM calls per table
-DISCOVERY_PROFILE_CONCURRENCY = 6      # concurrent tables profiled at once (DB-bound, not LLM-bound)
+DISCOVERY_PROFILE_CONCURRENCY = 4      # concurrent tables profiled at once (DB-bound, not LLM-bound).
+                                        # Each concurrently-profiling thread holds one DB connection at
+                                        # a time — must stay <= the engine's pool capacity (pool_size=4,
+                                        # max_overflow=1 = 5 total, see db/connection.py) or profiling
+                                        # deterministically exhausts the pool under any real latency
+                                        # (seen in prod: "QueuePool limit of size 4 overflow 1 reached").
+                                        # Left one connection of headroom under that cap on purpose.
 DISCOVERY_PROFILE_BATCH_SIZE = 40      # columns per mega-query — keeps a single SELECT's expression
                                         # list bounded even for the widest tables (300+ columns)
 DISCOVERY_HISTOGRAM_MAX_BUCKETS = 20   # numeric-column histograms use min(this, distinct_count)
