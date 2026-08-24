@@ -14,6 +14,7 @@ import { formatCount } from "../lib/format";
 import { getCurrentTheme } from "../lib/theme";
 import EChart, { EChartHandle } from "./EChart";
 import { downloadCsv, filenameFor } from "../lib/csv";
+import { useIsNarrow } from "../lib/useIsNarrow";
 
 type Mode = "single" | "dashboard";
 
@@ -109,6 +110,7 @@ export default function VisualizeView() {
   const [expandedSql, setExpandedSql] = useState<Set<string>>(new Set());
   const [chatPct, setChatPct] = useState(DEFAULT_CHAT_PCT);
   const [savingDashboard, setSavingDashboard] = useState(false);
+  const narrow = useIsNarrow();
 
   const chatLogRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -328,8 +330,8 @@ export default function VisualizeView() {
   }
 
   return (
-    <div style={styles.split} ref={containerRef}>
-      <div style={{ ...styles.chatPanel, width: `${chatPct}%` }}>
+    <div style={{ ...styles.split, ...(narrow ? styles.splitNarrow : {}) }} ref={containerRef}>
+      <div style={{ ...styles.chatPanel, ...(narrow ? styles.chatPanelNarrow : { width: `${chatPct}%` }) }}>
         <div style={styles.modeRow}>
           <button
             style={{ ...styles.modeButton, ...(mode === "single" ? styles.modeButtonActive : {}) }}
@@ -425,17 +427,19 @@ export default function VisualizeView() {
         </div>
       </div>
 
-      <div
-        style={styles.hDivider}
-        onMouseDown={(e) => {
-          draggingH.current = true;
-          e.preventDefault();
-        }}
-      >
-        <div style={styles.hDividerHandle} />
-      </div>
+      {!narrow && (
+        <div
+          style={styles.hDivider}
+          onMouseDown={(e) => {
+            draggingH.current = true;
+            e.preventDefault();
+          }}
+        >
+          <div style={styles.hDividerHandle} />
+        </div>
+      )}
 
-      <div style={styles.canvasPanel}>
+      <div style={{ ...styles.canvasPanel, ...(narrow ? styles.canvasPanelNarrow : {}) }}>
         {mode === "dashboard" && charts.length > 0 && (
           <div style={styles.dashboardHeader}>
             <span style={styles.dim}>{charts.length} chart{charts.length === 1 ? "" : "s"}</span>
@@ -480,6 +484,7 @@ function ChartCardView({
   const spec = card.spec;
   const [copied, setCopied] = useState(false);
   const chartRef = useRef<EChartHandle>(null);
+  const narrow = useIsNarrow();
 
   async function copySql() {
     try {
@@ -501,7 +506,13 @@ function ChartCardView({
 
       {card.loadFailed && <div style={styles.dim}>Couldn't build a chart for this — see SQL for the raw data.</div>}
 
-      {spec && spec.option && <EChart ref={chartRef} option={spec.option as EChartsOption} height={compact ? 260 : 360} />}
+      {spec && spec.option && (
+        <EChart
+          ref={chartRef}
+          option={spec.option as EChartsOption}
+          height={narrow ? (compact ? 200 : 240) : compact ? 260 : 360}
+        />
+      )}
 
       {spec && spec.chart_type === "stat" && card.rows[0] && (
         <div style={styles.statValue}>{formatCount(Number(Object.values(card.rows[0])[0]))}</div>
@@ -553,7 +564,24 @@ function ProgressLineView({ line }: { line: ProgressLine }) {
 const styles: Record<string, React.CSSProperties> = {
   split: {
     display: "flex",
-    height: "calc(100vh - 55px - 45px)", // full viewport minus nav bar and footer
+    // See AskView.tsx's identical split rule for why this is flex: 1 and
+    // not a hardcoded height calc.
+    flex: 1,
+    minHeight: 0,
+  },
+  // Below the ~768px breakpoint (useIsNarrow): stack chat above the chart
+  // canvas instead of a side-by-side split — see AskView.tsx's identical
+  // splitNarrow for the full reasoning (drag divider hidden, not made
+  // touch-operable).
+  splitNarrow: {
+    flexDirection: "column",
+  },
+  chatPanelNarrow: {
+    width: "100%",
+    height: "55vh",
+  },
+  canvasPanelNarrow: {
+    width: "100%",
   },
   chatPanel: {
     flexShrink: 0,
@@ -752,7 +780,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
+    // min(360px, 100%) instead of a bare 360px — auto-fill's floor would
+    // otherwise force at least 360px per column even on a viewport
+    // narrower than that, overflowing the page horizontally.
+    gridTemplateColumns: "repeat(auto-fill, minmax(min(360px, 100%), 1fr))",
     gap: 16,
   },
   chartCard: {

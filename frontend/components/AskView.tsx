@@ -10,6 +10,7 @@ import { apiClient } from "../lib/api-client";
 import { logger } from "../lib/logger";
 import { formatCell, formatCount } from "../lib/format";
 import { downloadCsv, filenameFor } from "../lib/csv";
+import { useIsNarrow } from "../lib/useIsNarrow";
 
 type ProgressLine = { text: string; ok?: boolean };
 
@@ -78,6 +79,8 @@ export default function AskView() {
   const [chatPct, setChatPct] = useState(DEFAULT_CHAT_PCT);
   const [copied, setCopied] = useState(false);
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
+  const [sqlOpenNarrow, setSqlOpenNarrow] = useState(false);
+  const narrow = useIsNarrow();
 
   const chatLogRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -233,8 +236,8 @@ export default function AskView() {
   const lastQuestion = [...messages].reverse().find((m) => m.role === "user")?.content;
 
   return (
-    <div style={styles.split} ref={containerRef}>
-      <div style={{ ...styles.chatPanel, width: `${chatPct}%` }}>
+    <div style={{ ...styles.split, ...(narrow ? styles.splitNarrow : {}) }} ref={containerRef}>
+      <div style={{ ...styles.chatPanel, ...(narrow ? styles.chatPanelNarrow : { width: `${chatPct}%` }) }}>
         <div style={styles.chatLog} ref={chatLogRef}>
           {messages.length === 0 && (
             <div style={styles.emptyHint}>Ask a question about your data in plain English — no SQL or schema knowledge needed.</div>
@@ -312,18 +315,20 @@ export default function AskView() {
         </div>
       </div>
 
-      <div
-        style={styles.hDivider}
-        onMouseDown={(e) => {
-          draggingH.current = true;
-          e.preventDefault();
-        }}
-      >
-        <div style={styles.hDividerHandle} />
-      </div>
+      {!narrow && (
+        <div
+          style={styles.hDivider}
+          onMouseDown={(e) => {
+            draggingH.current = true;
+            e.preventDefault();
+          }}
+        >
+          <div style={styles.hDividerHandle} />
+        </div>
+      )}
 
-      <div style={styles.resultsPanel} ref={resultsPanelRef}>
-        <div style={{ ...styles.tableSection, height: `${vSplitPct}%` }}>
+      <div style={{ ...styles.resultsPanel, ...(narrow ? styles.resultsPanelNarrow : {}) }} ref={resultsPanelRef}>
+        <div style={narrow ? styles.tableSectionNarrow : { ...styles.tableSection, height: `${vSplitPct}%` }}>
           {!result && <div style={styles.emptyHint}>Results will appear here once you ask a question.</div>}
           {result && (
             <>
@@ -338,7 +343,7 @@ export default function AskView() {
                   </button>
                 )}
               </div>
-              <div style={styles.tableWrap}>
+              <div style={narrow ? { ...styles.tableWrap, flex: undefined, maxHeight: "50vh" } : styles.tableWrap}>
                 <table style={styles.table}>
                   <thead>
                     <tr>
@@ -369,24 +374,33 @@ export default function AskView() {
           )}
         </div>
 
-        <div
-          style={styles.vDivider}
-          onMouseDown={(e) => {
-            draggingV.current = true;
-            e.preventDefault();
-          }}
-        >
-          <div style={styles.vDividerHandle} />
-        </div>
+        {!narrow && (
+          <div
+            style={styles.vDivider}
+            onMouseDown={(e) => {
+              draggingV.current = true;
+              e.preventDefault();
+            }}
+          >
+            <div style={styles.vDividerHandle} />
+          </div>
+        )}
 
-        <div style={{ ...styles.sqlSection, height: `${100 - vSplitPct}%` }}>
+        <div style={narrow ? styles.sqlSectionNarrow : { ...styles.sqlSection, height: `${100 - vSplitPct}%` }}>
           <div style={styles.sqlHeader}>
             <div style={styles.sectionTitle}>sql</div>
-            {result?.sql && (
-              <button style={styles.copyButton} onClick={copySql}>{copied ? "copied" : "copy"}</button>
-            )}
+            <div style={styles.sqlHeaderActions}>
+              {narrow && (
+                <button style={styles.copyButton} onClick={() => setSqlOpenNarrow((v) => !v)}>
+                  {sqlOpenNarrow ? "hide" : "show"}
+                </button>
+              )}
+              {result?.sql && (!narrow || sqlOpenNarrow) && (
+                <button style={styles.copyButton} onClick={copySql}>{copied ? "copied" : "copy"}</button>
+              )}
+            </div>
           </div>
-          <pre style={styles.sqlBox}>{result?.sql ?? "—"}</pre>
+          {(!narrow || sqlOpenNarrow) && <pre style={styles.sqlBox}>{result?.sql ?? "—"}</pre>}
         </div>
       </div>
     </div>
@@ -407,7 +421,40 @@ function ProgressLineView({ line }: { line: ProgressLine }) {
 const styles: Record<string, React.CSSProperties> = {
   split: {
     display: "flex",
-    height: "calc(100vh - 55px - 45px)", // full viewport minus nav bar and footer
+    // flex: 1 (not a hardcoded height calc) — this div is a direct child of
+    // <body>, not wrapped in a <main>, so the body > main sticky-footer
+    // rule in globals.css never applied to it. flex: 1 does the same job
+    // directly: grows to fill whatever's left after NavBar/Footer's actual
+    // rendered height, instead of assuming they're exactly 55px/45px tall
+    // (which breaks the moment either wraps to two lines) and instead of
+    // leaving dead space below the footer when content is shorter than a
+    // full viewport (the narrow-layout bug this replaced).
+    flex: 1,
+    minHeight: 0,
+  },
+  // Below the ~768px breakpoint (useIsNarrow): stack chat above results
+  // instead of a side-by-side split. The drag dividers are hidden rather
+  // than made touch-operable — that's a bigger project, and stacking
+  // removes the need for a resizable split at all.
+  splitNarrow: {
+    flexDirection: "column",
+  },
+  chatPanelNarrow: {
+    width: "100%",
+    height: "55vh",
+  },
+  resultsPanelNarrow: {
+    width: "100%",
+  },
+  tableSectionNarrow: {
+    padding: "16px 20px",
+    display: "flex",
+    flexDirection: "column",
+  },
+  sqlSectionNarrow: {
+    padding: "12px 20px",
+    display: "flex",
+    flexDirection: "column",
   },
   chatPanel: {
     flexShrink: 0,
@@ -661,6 +708,10 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "space-between",
     marginBottom: 8,
     flexShrink: 0,
+  },
+  sqlHeaderActions: {
+    display: "flex",
+    gap: 8,
   },
   sectionTitle: {
     fontSize: 11,
