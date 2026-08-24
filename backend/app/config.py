@@ -24,13 +24,17 @@ DISCOVERY_PROFILE_BATCH_SIZE = 40      # columns per mega-query — keeps a sing
 DISCOVERY_HISTOGRAM_MAX_BUCKETS = 20   # numeric-column histograms use min(this, distinct_count)
                                         # buckets — a column with 5 distinct values gets 5 buckets
                                         # (exact), not 20 mostly-empty ones
+DISCOVERY_STALE_RUN_MINUTES = 60       # a 'running' row older than this with no path left to call
+                                        # mark_failed (process crashed/redeployed mid-run) is treated
+                                        # as orphaned, not genuinely active — otherwise it blocks every
+                                        # future run forever with a 409
 
 # ── LLM / embeddings (LangChain — provider is a config swap, never hardcoded) ─
 # Both LLM and embeddings go through OpenRouter's OpenAI-compatible endpoint —
 # one API key, one base URL, model is just a string swap.
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-LLM_MODEL = "x-ai/grok-4.6"       # OpenRouter model slug
+LLM_MODEL = "deepseek/deepseek-v4-flash-0731"       # OpenRouter model slug
 LLM_MAX_RETRIES = 3
 LLM_MAX_TOKENS = 6000                                # deepseek-v4-flash spends a variable amount on
                                                      # internal reasoning before any answer text — a

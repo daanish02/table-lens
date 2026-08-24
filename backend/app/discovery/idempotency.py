@@ -3,10 +3,11 @@ run, check for schema changes, and query current/past run status."""
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import text, Engine
 
+from app.config import DISCOVERY_STALE_RUN_MINUTES
 from app.discovery import queries
 from app.utils.logger import get_logger
 
@@ -93,11 +94,28 @@ def get_status(engine: Engine, run_id: str) -> dict | None:
 
 def get_active_run(engine: Engine) -> dict | None:
     """Any run still pending/running — used to refuse starting a new run
-    while one's already in flight (see run_discovery)."""
+    while one's already in flight (see run_discovery). A row older
+    than DISCOVERY_STALE_RUN_MINUTES is treated as orphaned rather than
+    genuinely active and reaped (marked failed) instead of returned — a
+    process crash or redeploy mid-run leaves no code path to ever call
+    mark_failed on its own, and without this a single such incident blocks
+    every future run with a 409 forever."""
     ensure_runs_table(engine)
     with engine.connect() as conn:
         row = conn.execute(text(queries.load("idempotency_get_active_run"))).mappings().first()
-    return dict(row) if row else None
+    if row is None:
+        return None
+    row = dict(row)
+    age = datetime.now(timezone.utc) - row["started_at"]
+    if age > timedelta(minutes=DISCOVERY_STALE_RUN_MINUTES):
+        log.warning(f"reaping stale discovery run {row['run_id']} (started {age} ago, never finished)")
+        mark_failed(
+            engine, row["run_id"],
+            f"orphaned — no progress for over {DISCOVERY_STALE_RUN_MINUTES} minutes "
+            "(the process likely crashed or was redeployed mid-run)",
+        )
+        return None
+    return row
 
 
 def get_last_run(engine: Engine) -> dict | None:

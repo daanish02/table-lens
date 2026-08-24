@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { apiClient } from "../lib/api-client";
+import { apiClient, ApiError } from "../lib/api-client";
 import { logger } from "../lib/logger";
 import { formatCount, formatDateTime } from "../lib/format";
 import { Skeleton, SkeletonCard } from "./Skeleton";
@@ -91,6 +91,7 @@ export default function DataOverview() {
   const [overviewError, setOverviewError] = useState(false);
   const [resultsError, setResultsError] = useState(false);
   const [statusLost, setStatusLost] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const [overviewReloadKey, setOverviewReloadKey] = useState(0);
   const [resultsReloadKey, setResultsReloadKey] = useState(0);
   const lastStep = useRef<string | null>(null);
@@ -181,12 +182,20 @@ export default function DataOverview() {
     setElapsedMs(0);
     statusPollFailures.current = 0;
     setStatusLost(false);
+    setStartError(null);
     try {
       const res = await apiClient.post<{ run_id: string }>("/api/discover", {});
       setRunId(res.run_id);
       setStatus({ run_id: res.run_id, status: "running", step: "started", error: null, total_tables: null, tables_done: null });
     } catch (err) {
       logger.error("failed to start discovery", err);
+      if (err instanceof ApiError && err.status === 409) {
+        setStartError("A discovery run is already in progress (started elsewhere, or a previous one is still finishing) — try again in a bit.");
+      } else if (err instanceof ApiError && err.status === 429) {
+        setStartError("Discovery can only be triggered a few times per hour — try again later.");
+      } else {
+        setStartError("Couldn't start discovery — check your connection and try again.");
+      }
     } finally {
       setStarting(false);
     }
@@ -264,6 +273,8 @@ export default function DataOverview() {
           Lost track of this discovery run — the backend may have restarted. It may still be running server-side; refresh to check the latest status.
         </div>
       )}
+
+      {startError && <div style={styles.errorBox}>{startError}</div>}
 
       <button
         onClick={() => setConfirmOpen(true)}
