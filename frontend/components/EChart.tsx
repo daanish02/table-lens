@@ -4,6 +4,29 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import * as echarts from "echarts";
 import type { EChartsOption } from "echarts";
 
+function cssVar(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function injectAxisNameColor(option: EChartsOption): EChartsOption {
+  const color = cssVar("--text-dim") || "#8b8b93";
+  const patch = (axis: unknown) => {
+    if (!axis || typeof axis !== "object") return;
+    const a = axis as Record<string, unknown>;
+    if (!("name" in a)) return; // only touch axes that have a name set
+    const style = (a.nameTextStyle ?? {}) as Record<string, unknown>;
+    if (!("color" in style)) style.color = color;
+    a.nameTextStyle = style;
+  };
+  const applyToAxes = (axes: unknown) => {
+    if (Array.isArray(axes)) axes.forEach(patch);
+    else patch(axes);
+  };
+  applyToAxes(option.xAxis);
+  applyToAxes(option.yAxis);
+  return option;
+}
+
 export type EChartHandle = {
   /** Exports the current chart as a PNG and triggers a browser download.
    * Bakes in the page's --bg color explicitly — the chart's own canvas is
@@ -45,7 +68,7 @@ const EChart = forwardRef<EChartHandle, { option: EChartsOption; height?: number
     // with rotated/crowded axis labels can garble them on a big incremental
     // shrink (e.g. switching from the 360px single view to a 220px
     // dashboard card) instead of laying them out cleanly for the new size.
-    chartRef.current?.setOption(option, true);
+    chartRef.current?.setOption(injectAxisNameColor(option), true);
   }, [option, height]);
 
   useImperativeHandle(ref, () => ({
