@@ -108,11 +108,27 @@ by an overall tool-call recursion limit, not a fixed retry count. Produces a
 plain-English headline from actual results via a second LLM call.
 
 ### `backend/app/visualize/`
-Turns a finished query result into a validated chart spec. A single
-structured LLM call (`agent.py`) picks a chart type and axis/series mapping
-guided by a prompt (`prompts/`); `chart_guard.py` validates the result
-against an allowed chart-type set and structural rules before it reaches the
-browser. `theme.py` applies light/dark-aware styling.
+Turns a finished query result into a validated chart spec in three steps:
+
+1. **LLM descriptor** (`agent.py` + `prompts/`) — a single structured call to
+   a fast non-reasoning model (`VISUALIZE_LLM_MODEL`, separate from the query
+   agent's `LLM_MODEL`) returns a compact JSON descriptor: chart type, column
+   mappings (which column is the x-axis, which are series, which is the pie
+   label, etc.), axis names, rotate flag, and color picks from the
+   theme-aware palette. The LLM never emits data values — only structure.
+
+2. **Option assembly** (`builder.py`) — `build_option()` takes the descriptor
+   and the already-executed rows and assembles a complete ECharts option,
+   wiring real data into the series. One builder function per chart type
+   (`bar`/`line`, `pie`, `scatter`); `validate_descriptor()` checks that every
+   column reference in the descriptor actually exists in the query result before
+   the builder runs.
+
+3. **Validation** (`chart_guard.py`) — normalizes the assembled option:
+   enforces `containLabel`, moves pie labels outside, reserves right-axis
+   margin on dual-axis charts, strips any JS-function strings, relocates
+   legends away from crowded x-axis labels. `theme.py` supplies the
+   light/dark-aware color palette passed into the prompt.
 
 ### `backend/app/db/`
 Supabase/Postgres connection management. Enforces read-only access at the

@@ -55,8 +55,10 @@ POST /api/visualize          # turn a query result into a chart spec
 
 `POST /api/visualize` — body: `{ "question": string, "sql": string,
 "headline": string, "columns": [...], "rows": [...], "theme": string }`.
-Returns a validated ECharts chart spec (see `chart_guard` in
-`ARCHITECTURE.md`) chosen by a single structured LLM call.
+Returns `{ "title": string, "chart_type": string, "option": object|null,
+"elapsed_ms": number }` — a validated ECharts option assembled by the
+visualize agent (see `ARCHITECTURE.md` for the descriptor→builder→guard
+pipeline). `elapsed_ms` is the wall time for the full chart-generation step.
 
 ## Data
 ```
