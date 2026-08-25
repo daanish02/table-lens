@@ -628,7 +628,7 @@ const styles: Record<string, React.CSSProperties> = {
     // properly below normal content; solid var(--bg) keeps the same
     // outline-button look with an opaque fill.
     background: "var(--bg)",
-    border: "1px solid var(--border)",
+    border: "1px solid var(--border-strong)",
     color: "var(--text-dim)",
     padding: "9px 0",
     fontFamily: "var(--mono)",
