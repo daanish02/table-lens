@@ -112,6 +112,18 @@ def _normalize_layout(option: dict) -> None:
     grid["bottom"] = "18%"
 
 
+def _has_right_yaxis(option: dict) -> bool:
+    """True when any yAxis entry is explicitly positioned on the right side —
+    dual-axis charts need extra grid.right margin so the right axis name
+    doesn't collide with the x-axis name at the bottom-right corner."""
+    y = option.get("yAxis")
+    if isinstance(y, dict):
+        y = [y]
+    if not isinstance(y, list):
+        return False
+    return any(isinstance(entry, dict) and entry.get("position") == "right" for entry in y)
+
+
 def _ensure_contain_label(option: dict) -> None:
     """Forces grid.containLabel = true unless the LLM explicitly set it.
     Without it, axis labels and axis `name` text (e.g. a "Ratio" title next
@@ -120,16 +132,30 @@ def _ensure_contain_label(option: dict) -> None:
     clipped by the chart card's fixed width instead of just being tight.
     containLabel makes ECharts auto-reserve the space instead of assuming
     it's already there. Handles grid as a single object or (for multi-grid
-    combo charts) a list of them."""
+    combo charts) a list of them.
+
+    Also sets a minimum grid.right on dual-axis charts: containLabel covers
+    tick numbers but not axis name text, which is positioned independently
+    and overflows the grid boundary on the right when a second y-axis name
+    collides with the x-axis name at the bottom-right corner."""
+    needs_right_margin = _has_right_yaxis(option)
+
     grid = option.get("grid")
     if isinstance(grid, list):
         for g in grid:
             if isinstance(g, dict):
                 g.setdefault("containLabel", True)
+                if needs_right_margin:
+                    g.setdefault("right", "10%")
     elif isinstance(grid, dict):
         grid.setdefault("containLabel", True)
+        if needs_right_margin:
+            grid.setdefault("right", "10%")
     else:
-        option["grid"] = {"containLabel": True}
+        base: dict = {"containLabel": True}
+        if needs_right_margin:
+            base["right"] = "10%"
+        option["grid"] = base
 
 
 def _normalize_pie_labels(option: dict) -> None:
