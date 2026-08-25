@@ -132,6 +132,21 @@ def _ensure_contain_label(option: dict) -> None:
         option["grid"] = {"containLabel": True}
 
 
+def _normalize_pie_labels(option: dict) -> None:
+    """Forces pie chart labels outside the slice with a thin leader line.
+    Inside labels need a heavy text border to stay readable over colored
+    slices, and small slices crowd badly. Outside placement removes both
+    problems without needing any per-question prompt guidance."""
+    for s in option.get("series", []):
+        if not isinstance(s, dict) or s.get("type") != "pie":
+            continue
+        label = s.setdefault("label", {})
+        label["position"] = "outside"
+        label.pop("textBorderWidth", None)
+        label.pop("textBorderColor", None)
+        s.setdefault("labelLine", {})["show"] = True
+
+
 def validate_chart_spec(spec: dict) -> dict:
     """Validates + normalizes a generated chart spec in place (stripping
     unusable JS-function strings, auto-fixing known layout collisions),
@@ -168,6 +183,8 @@ def validate_chart_spec(spec: dict) -> dict:
     _strip_js_function_strings(option)
     _normalize_layout(option)
     _ensure_contain_label(option)
+    if spec["chart_type"] == "pie":
+        _normalize_pie_labels(option)
     option.pop("title", None)  # frontend renders spec["title"] as its own heading; a
                                 # duplicate ECharts title component wastes vertical space
                                 # and can overlap the plot when the chart is shown small
