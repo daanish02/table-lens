@@ -8,6 +8,18 @@ function cssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+function injectTooltipStyle(option: EChartsOption): EChartsOption {
+  const tooltip = option.tooltip as Record<string, unknown> | undefined;
+  if (!tooltip) return option;
+  const surface = cssVar("--surface") || "#111113";
+  const border = cssVar("--border") || "#26262b";
+  const text = cssVar("--text") || "#e4e4e7";
+  if (!tooltip.backgroundColor) tooltip.backgroundColor = `${surface}d9`; // ~85% opacity
+  if (!tooltip.borderColor) tooltip.borderColor = border;
+  if (!tooltip.textStyle) tooltip.textStyle = { color: text, fontSize: 12 };
+  return option;
+}
+
 function injectAxisNameColor(option: EChartsOption): EChartsOption {
   const color = cssVar("--text-dim") || "#8b8b93";
   const patch = (axis: unknown) => {
@@ -68,7 +80,7 @@ const EChart = forwardRef<EChartHandle, { option: EChartsOption; height?: number
     // with rotated/crowded axis labels can garble them on a big incremental
     // shrink (e.g. switching from the 360px single view to a 220px
     // dashboard card) instead of laying them out cleanly for the new size.
-    chartRef.current?.setOption(injectAxisNameColor(option), true);
+    chartRef.current?.setOption(injectTooltipStyle(injectAxisNameColor(option)), true);
   }, [option, height]);
 
   useImperativeHandle(ref, () => ({
