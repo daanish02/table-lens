@@ -84,6 +84,7 @@ export default function DataOverview() {
   const [status, setStatus] = useState<DiscoverStatus | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [starting, setStarting] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [results, setResults] = useState<TableResult[] | null>(null);
   const [resultsLoading, setResultsLoading] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -113,6 +114,22 @@ export default function DataOverview() {
   }
 
   useEffect(loadOverview, [overviewReloadKey]);
+
+  useEffect(() => {
+    const adminKey = process.env.NEXT_PUBLIC_ADMIN_KEY;
+    if (!adminKey) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("unlock") === adminKey) {
+      try { localStorage.setItem("tl-admin", adminKey); } catch {}
+      // Strip the param from the URL without a navigation
+      const url = new URL(window.location.href);
+      url.searchParams.delete("unlock");
+      window.history.replaceState({}, "", url.toString());
+    }
+    try {
+      setIsAdmin(localStorage.getItem("tl-admin") === adminKey);
+    } catch {}
+  }, []);
 
   function loadResults() {
     setResultsError(false);
@@ -184,7 +201,12 @@ export default function DataOverview() {
     setStatusLost(false);
     setStartError(null);
     try {
-      const res = await apiClient.post<{ run_id: string }>("/api/discover", {});
+      const adminKey = process.env.NEXT_PUBLIC_ADMIN_KEY;
+      const res = await apiClient.post<{ run_id: string }>(
+        "/api/discover", {},
+        undefined,
+        adminKey ? { "X-Admin-Key": adminKey } : undefined,
+      );
       setRunId(res.run_id);
       setStatus({ run_id: res.run_id, status: "running", step: "started", error: null, total_tables: null, tables_done: null });
     } catch (err) {
@@ -276,7 +298,7 @@ export default function DataOverview() {
 
       {startError && <div style={styles.errorBox}>{startError}</div>}
 
-      <button
+      {isAdmin && <button
         onClick={() => setConfirmOpen(true)}
         disabled={starting || isRunning}
         style={{
@@ -285,7 +307,7 @@ export default function DataOverview() {
         }}
       >
         {isRunning ? "running…" : starting ? "starting…" : "run discovery"}
-      </button>
+      </button>}
 
       <ConfirmDialog
         open={confirmOpen}

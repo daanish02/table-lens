@@ -69,10 +69,10 @@ async function streamPost<TEvent>(
 
 export const apiClient = {
   get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body: unknown, signal?: AbortSignal) =>
+  post: <T>(path: string, body: unknown, signal?: AbortSignal, extraHeaders?: Record<string, string>) =>
     request<T>(path, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...extraHeaders },
       body: JSON.stringify(body),
       signal,
     }),

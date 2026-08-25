@@ -60,6 +60,7 @@ EMBEDDING_DIM = 768                                 # truncated via dimensions= 
 
 # ── API ───────────────────────────────────────────────────────────────────
 RATE_LIMIT = "20/minute"
+ADMIN_KEY = os.getenv("ADMIN_KEY", "")  # required to POST /api/discover; empty = endpoint open (dev default)
 # Comma-separated in prod (e.g. "https://tablelens.yourdomain.com"). Falls
 # back to local dev ports when unset.
 ALLOWED_ORIGINS = [

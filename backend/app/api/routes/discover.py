@@ -1,7 +1,8 @@
 """Discovery agent HTTP routes: trigger a run, poll its status, read back
 results."""
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Header, HTTPException, Request
+from typing import Optional
 
 from app.db import get_engine
 from app.discovery import (
@@ -10,6 +11,7 @@ from app.discovery import (
 )
 from app.api.middleware import limiter
 from app.utils import get_logger
+from app.config import ADMIN_KEY
 
 __all__ = ["router"]
 
@@ -22,9 +24,12 @@ router = APIRouter(prefix="/api/discover", tags=["discover"])
 # route (up to 8 concurrent paid LLM calls per table, ~50 tables), so it
 # gets its own, much stingier budget rather than sharing the generic one.
 @limiter.limit("5/hour")
-def discover(request: Request):
+def discover(request: Request, x_admin_key: Optional[str] = Header(default=None)):
     """Starts a discovery run in the background, returns its run_id
-    immediately. 409s if one's already in progress."""
+    immediately. 409s if one's already in progress. 403s if ADMIN_KEY is
+    set and the request doesn't carry a matching X-Admin-Key header."""
+    if ADMIN_KEY and x_admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="forbidden")
     log.info("discover request received")
     try:
         run_id = run_discovery(background=True)
