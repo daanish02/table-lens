@@ -90,6 +90,15 @@ function nextLocalId(): string {
   return `chart-${localIdCounter}`;
 }
 
+const VIZ_SUGGESTIONS = [
+  "Claims by status",
+  "Monthly premium revenue this year",
+  "Average claim amount by incident type",
+  "Active agents by region",
+  "Claims volume by month vs last year",
+  "Risk score vs loss ratio by risk category",
+];
+
 const MIN_CHAT_PCT = 20;
 const MAX_CHAT_PCT = 60;
 const DEFAULT_CHAT_PCT = 100 / 3;
@@ -114,6 +123,7 @@ export default function VisualizeView() {
 
   const chatLogRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const draggingH = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -350,8 +360,24 @@ export default function VisualizeView() {
         </div>
         <div style={styles.chatLog} ref={chatLogRef}>
           {messages.length === 0 && (
-            <div style={styles.emptyHint}>
-              Ask a question and it'll be turned into a chart automatically. {mode === "dashboard" ? "Each answer adds a chart to the dashboard on the right." : "Each question replaces the chart on the right."}
+            <div>
+              <div style={styles.emptyHint}>
+                Ask a question and it'll be turned into a chart automatically. {mode === "dashboard" ? "Each answer adds a chart to the dashboard on the right." : "Each question replaces the chart on the right."}
+              </div>
+              <div style={styles.suggestions}>
+                {VIZ_SUGGESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    style={styles.suggestionChip}
+                    onClick={() => {
+                      setInput(q);
+                      textareaRef.current?.focus();
+                    }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {messages.map((m, i) => (
@@ -408,6 +434,7 @@ export default function VisualizeView() {
         </div>
         <div style={styles.inputRow}>
           <textarea
+            ref={textareaRef}
             style={styles.textarea}
             placeholder="describe the chart you want…"
             value={input}
@@ -627,6 +654,23 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--text-faint)",
     lineHeight: 1.5,
     padding: "8px 4px",
+  },
+  suggestions: {
+    display: "flex",
+    flexWrap: "wrap" as const,
+    gap: 6,
+    marginTop: 12,
+  },
+  suggestionChip: {
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    color: "var(--text-dim)",
+    fontFamily: "var(--sans)",
+    fontSize: 12,
+    padding: "5px 10px",
+    borderRadius: 2,
+    cursor: "pointer",
+    textAlign: "left" as const,
   },
   bubbleRow: {
     display: "flex",

@@ -51,6 +51,15 @@ function toolCallLabel(tool: string, args: Record<string, unknown>): string {
   }
 }
 
+const ASK_SUGGESTIONS = [
+  "How many customers are there?",
+  "Claims by status",
+  "Top 10 agents by total commission paid",
+  "Monthly premium revenue this year",
+  "Which products have the highest claim-to-premium ratio?",
+  "Which customers are most likely to churn?",
+];
+
 const PAGE_SIZE = 50;
 // Generous enough not to false-positive on a legitimately long multi-round
 // agent run — matches the backend's own bounded worst case now that every
@@ -85,6 +94,7 @@ export default function AskView() {
   const chatLogRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const resultsPanelRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const draggingV = useRef(false);
   const draggingH = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -240,7 +250,23 @@ export default function AskView() {
       <div style={{ ...styles.chatPanel, ...(narrow ? styles.chatPanelNarrow : { width: `${chatPct}%` }) }}>
         <div style={styles.chatLog} ref={chatLogRef}>
           {messages.length === 0 && (
-            <div style={styles.emptyHint}>Ask a question about your data in plain English — no SQL or schema knowledge needed.</div>
+            <div>
+              <div style={styles.emptyHint}>Ask a question about your data in plain English — no SQL or schema knowledge needed.</div>
+              <div style={styles.suggestions}>
+                {ASK_SUGGESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    style={styles.suggestionChip}
+                    onClick={() => {
+                      setInput(q);
+                      textareaRef.current?.focus();
+                    }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
           {messages.map((m, i) => (
             <div key={i} style={styles.bubbleRow}>
@@ -296,6 +322,7 @@ export default function AskView() {
         </div>
         <div style={styles.inputRow}>
           <textarea
+            ref={textareaRef}
             style={styles.textarea}
             placeholder="ask a question…"
             value={input}
@@ -476,6 +503,23 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--text-faint)",
     lineHeight: 1.5,
     padding: "8px 4px",
+  },
+  suggestions: {
+    display: "flex",
+    flexWrap: "wrap" as const,
+    gap: 6,
+    marginTop: 12,
+  },
+  suggestionChip: {
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    color: "var(--text-dim)",
+    fontFamily: "var(--sans)",
+    fontSize: 12,
+    padding: "5px 10px",
+    borderRadius: 2,
+    cursor: "pointer",
+    textAlign: "left" as const,
   },
   bubbleRow: {
     display: "flex",
