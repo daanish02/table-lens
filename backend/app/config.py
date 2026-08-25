@@ -40,7 +40,7 @@ DISCOVERY_STALE_RUN_MINUTES = 60       # a 'running' row older than this with no
 # one API key, one base URL, model is just a string swap.
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-LLM_MODEL = "deepseek/deepseek-v4-flash-0731"       # OpenRouter model slug
+LLM_MODEL = "deepseek/deepseek-v4-flash-0731"       # OpenRouter model slug (query agent)
 LLM_MAX_RETRIES = 3
 LLM_MAX_TOKENS = 6000                                # deepseek-v4-flash spends a variable amount on
                                                      # internal reasoning before any answer text — a
@@ -50,6 +50,11 @@ LLM_MAX_TOKENS = 6000                                # deepseek-v4-flash spends 
                                                      # unbounded default (65536) ran fine per-call; this
                                                      # just caps a single pathological runaway, not the
                                                      # normal case.
+VISUALIZE_LLM_MODEL = "google/gemini-2.5-flash-lite"
+                                                     # Separate model for the visualize agent — it only
+                                                     # outputs a compact descriptor (~20 fields), not
+                                                     # hundreds of data-point tokens, so a fast
+                                                     # non-reasoning model is the right fit here.
 EMBEDDING_MODEL = "openai/text-embedding-3-small"   # OpenRouter model slug
 EMBEDDING_DIM = 768                                 # truncated via dimensions= (native is 1536)
 
