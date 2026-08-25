@@ -35,7 +35,9 @@ def build_option(descriptor: dict, rows: list[dict]) -> dict | None:
     fn = builders.get(chart_type)
     if fn is None:
         raise ValueError(f"unknown chart_type: {chart_type!r}")
-    return fn(descriptor, rows)
+    option = fn(descriptor, rows)
+    option.setdefault("tooltip", {"trigger": "axis" if chart_type in ("bar", "line") else "item"})
+    return option
 
 
 def _build_bar_line(d: dict, rows: list[dict]) -> dict:
