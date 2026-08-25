@@ -204,7 +204,9 @@ export default function DataOverview() {
     setStatusLost(false);
     setStartError(null);
     try {
-      const res = await apiClient.post<{ run_id: string }>("/api/admin/discover", {});
+      const proxyRes = await fetch("/api/admin/discover", { method: "POST" });
+      if (!proxyRes.ok) throw new Error(`${proxyRes.status}`);
+      const res = await proxyRes.json() as { run_id: string };
       setRunId(res.run_id);
       setStatus({ run_id: res.run_id, status: "running", step: "started", error: null, total_tables: null, tables_done: null });
     } catch (err) {
