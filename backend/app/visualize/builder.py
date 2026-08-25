@@ -36,7 +36,10 @@ def build_option(descriptor: dict, rows: list[dict]) -> dict | None:
     if fn is None:
         raise ValueError(f"unknown chart_type: {chart_type!r}")
     option = fn(descriptor, rows)
-    option.setdefault("tooltip", {"trigger": "axis" if chart_type in ("bar", "line") else "item"})
+    option.setdefault("tooltip", {
+        "trigger": "axis" if chart_type in ("bar", "line") else "item",
+        **({"axisPointer": {"type": "shadow"}} if chart_type == "bar" else {}),
+    })
     return option
 
 
