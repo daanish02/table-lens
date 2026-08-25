@@ -12,6 +12,7 @@ LLM's output from hundreds of data-point tokens to ~20 descriptor fields,
 which is why a small fast model is the right fit for this step."""
 
 import json
+import time
 import uuid
 from app.visualize.llm import get_llm
 from app.visualize import prompts
@@ -49,6 +50,7 @@ def generate_chart(question: str, sql: str, headline: str, columns: list[str], r
     MAX_ATTEMPTS on validation failure. Falls back to chart_type="table"
     if every attempt fails."""
     call_id = uuid.uuid4().hex[:8]
+    started = time.monotonic()
     palette = get_palette(theme)
     sample_rows = rows[:SAMPLE_ROWS_FOR_PROMPT]
 
@@ -87,7 +89,8 @@ def generate_chart(question: str, sql: str, headline: str, columns: list[str], r
                 "option": option,
             }
             spec = validate_chart_spec(spec)
-            log.info(f"[{call_id}] chart generated: {spec['chart_type']} — {spec['title']!r}")
+            spec["elapsed_ms"] = round((time.monotonic() - started) * 1000)
+            log.info(f"[{call_id}] chart generated: {spec['chart_type']} — {spec['title']!r} ({spec['elapsed_ms']}ms)")
             return spec
         except (json.JSONDecodeError, ChartValidationError, ValueError, KeyError) as e:
             last_error = str(e)

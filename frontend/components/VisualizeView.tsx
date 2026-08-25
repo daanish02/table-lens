@@ -53,6 +53,7 @@ type ChartSpec = {
   chart_type: string;
   option: Record<string, unknown> | null;
   error?: string;
+  elapsed_ms?: number;
 };
 
 type ChartCard = {
@@ -65,6 +66,7 @@ type ChartCard = {
   loadFailed: boolean;
   savedId: string | null;
   saving: boolean;
+  chartElapsedMs?: number;
 };
 
 function toolCallLabel(tool: string, args: Record<string, unknown>): string {
@@ -210,12 +212,13 @@ export default function VisualizeView() {
         rows: result.rows,
         theme: getCurrentTheme(),
       });
-      setCharts((prev) => prev.map((c) => (c.localId === localId ? { ...c, spec } : c)));
+      const chartElapsedMs = spec.elapsed_ms;
+      setCharts((prev) => prev.map((c) => (c.localId === localId ? { ...c, spec, chartElapsedMs } : c)));
       if (mode === "dashboard") {
         autoSaveChart({
           localId, question, sql: result.sql as string,
           columns: result.columns as string[], rows: result.rows as Record<string, unknown>[],
-          spec, loadFailed: false, savedId: null, saving: false,
+          spec, loadFailed: false, savedId: null, saving: false, chartElapsedMs,
         });
       }
     } catch (err) {
@@ -570,6 +573,9 @@ function ChartCardView({
           </button>
         )}
         {compact && card.savedId && <span style={styles.savedTag}>saved</span>}
+        {card.chartElapsedMs !== undefined && spec && (
+          <span style={styles.chartElapsedTag}>{formatElapsed(card.chartElapsedMs)}</span>
+        )}
       </div>
 
       {sqlExpanded && <pre style={styles.sqlBox}>{card.sql}</pre>}
@@ -874,6 +880,11 @@ const styles: Record<string, React.CSSProperties> = {
   savedTag: {
     fontSize: 10,
     color: "var(--accent)",
+  },
+  chartElapsedTag: {
+    fontSize: 10,
+    color: "var(--text-faint)",
+    marginLeft: "auto",
   },
   sqlBox: {
     marginTop: 10,
