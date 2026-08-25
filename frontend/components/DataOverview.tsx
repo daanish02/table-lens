@@ -446,7 +446,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--text-faint)",
   },
   button: {
-    background: "transparent",
+    background: "var(--bg)",
     border: "1px solid var(--accent)",
     color: "var(--accent)",
     padding: "10px 20px",
