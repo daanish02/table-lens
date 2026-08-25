@@ -116,19 +116,22 @@ export default function DataOverview() {
   useEffect(loadOverview, [overviewReloadKey]);
 
   useEffect(() => {
-    const adminKey = process.env.NEXT_PUBLIC_ADMIN_KEY;
-    if (!adminKey) return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("unlock") === adminKey) {
-      try { localStorage.setItem("tl-admin", adminKey); } catch {}
-      // Strip the param from the URL without a navigation
+    const unlockKey = params.get("unlock");
+    if (unlockKey) {
       const url = new URL(window.location.href);
       url.searchParams.delete("unlock");
       window.history.replaceState({}, "", url.toString());
+      fetch("/api/admin/unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: unlockKey }),
+      }).then((r) => { if (r.ok) setIsAdmin(true); });
+    } else {
+      fetch("/api/admin/check")
+        .then((r) => r.json())
+        .then((d) => { if (d.isAdmin) setIsAdmin(true); });
     }
-    try {
-      setIsAdmin(localStorage.getItem("tl-admin") === adminKey);
-    } catch {}
   }, []);
 
   function loadResults() {
@@ -201,12 +204,7 @@ export default function DataOverview() {
     setStatusLost(false);
     setStartError(null);
     try {
-      const adminKey = process.env.NEXT_PUBLIC_ADMIN_KEY;
-      const res = await apiClient.post<{ run_id: string }>(
-        "/api/discover", {},
-        undefined,
-        adminKey ? { "X-Admin-Key": adminKey } : undefined,
-      );
+      const res = await apiClient.post<{ run_id: string }>("/api/admin/discover", {});
       setRunId(res.run_id);
       setStatus({ run_id: res.run_id, status: "running", step: "started", error: null, total_tables: null, tables_done: null });
     } catch (err) {
