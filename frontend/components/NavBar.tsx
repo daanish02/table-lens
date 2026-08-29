@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 const LINKS = [
   { href: "/data", label: "data" },
@@ -13,6 +16,7 @@ const LINKS = [
 /** Sitewide top nav — wordmark, page links (active one highlighted), theme toggle. */
 export default function NavBar() {
   const pathname = usePathname();
+  useEffect(() => { fetch(`${API_BASE}/health`).catch(() => {}); }, []);
   return (
     <nav style={styles.nav}>
       <Link href="/" style={styles.wordmark}>Table Lens</Link>
